@@ -1,66 +1,123 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# 📥 Feedback Management System
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+An attempt at a feedback classification system inspired by the **fms.umin.edu.ph** submission flow. This project uses a **Laravel 10** web interface to manage submissions and a **FastAPI (Python 3.12)** to predict departments and categories using Machine Learning models.
 
-## About Laravel
+## 🛠 Tech Stack
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+### Web / Management (Laravel)
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+* **PHP:** ^8.1
+* **Framework:** Laravel 10.10
+* **Charts:** Larapex Charts (for feedback analytics)
+* **Database:** MySQL 8 and Doctrine DBAL (for schema management)
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+### Machine Learning API (Python)
 
-## Learning Laravel
+* **Language:** Python 3.12
+* **Framework:** FastAPI
+* **Storage:** Local `.joblib` models (referenced from Hugging Face)
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+---
 
-You may also try the [Laravel Bootcamp](https://bootcamp.laravel.com), where you will be guided through building a modern Laravel application from scratch.
+## Getting Started
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+### 1. Web Application (Laravel)
 
-## Laravel Sponsors
+First, clone the repository and enter the project folder.
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
+**Installation:**
 
-### Premium Partners
+```bash
+composer install
 
-- **[Vehikl](https://vehikl.com/)**
-- **[Tighten Co.](https://tighten.co)**
-- **[WebReinvent](https://webreinvent.com/)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel/)**
-- **[Cyber-Duck](https://cyber-duck.co.uk)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Jump24](https://jump24.co.uk)**
-- **[Redberry](https://redberry.international/laravel/)**
-- **[Active Logic](https://activelogic.com)**
-- **[byte5](https://byte5.de)**
-- **[OP.GG](https://op.gg)**
+```
 
-## Contributing
+**Environment Setup:**
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+1. Copy the example env file: `cp .env.example .env`
+2. Generate an app key: `php artisan key:generate`
+3. Configure your database settings in `.env`.
 
-## Code of Conduct
+**Database & Seeding:**
+This project includes migrations for the feedback structure and seeders for institutional department data.
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+```bash
+php artisan migrate --seed
 
-## Security Vulnerabilities
+```
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+**Run Server:**
 
-## License
+```bash
+php artisan serve
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+```
+
+---
+
+### 2. Machine Learning API (Python)
+
+The API handles the logic for predicting which department ID, based from an institution (not suggested for other uses).
+
+**Navigate and Setup Virtual Environment:**
+
+```bash
+cd python_api
+python -m venv venv
+
+```
+
+**Activate Environment:**
+
+* **Windows:** `venv\Scripts\activate`
+* **Mac/Linux:** `source venv/bin/activate`
+
+**Install Dependencies:**
+
+```bash
+pip install -r requirements.txt
+
+```
+
+**Model Setup:**
+Ensure your `.joblib` files are placed in the `python_api/models/department` directory. These models are trained based on public institutional data and hosted on [Hugging Face](https://huggingface.co/Mielle-0/department-prediction-v4/tree/main).
+
+**Run API:**
+
+```bash
+uvicorn main:app --reload --port 5000
+
+```
+---
+
+**Test the API**
+Open two terminal and change directory to project folder.
+
+*Terminal 1*
+```bash
+php artisan queue:work
+
+```
+*Terminal 2*
+```bash
+php artisan db:seed --class=FeedbackSeeder
+
+```
+
+
+---
+
+## 📂 Project Structure
+
+```text
+├── app/                
+├── python_api/         
+│   ├── models/         # .joblib files (Ignored by Git)
+│       └── department/         # place models here
+│   └── main.py         # API Entry point
+│   └── local.py        # Suggested to use for local testing
+├── database/           
+├── resources/          
+└── .gitignore          
+
+```
