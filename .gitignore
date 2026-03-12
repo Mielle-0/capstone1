@@ -1,0 +1,39 @@
+# Laravel specific
+/vendor
+/node_modules
+/public/storage
+/storage/*.key
+/storage/logs/*
+/storage/framework/cache/*
+/storage/framework/sessions/*
+/storage/framework/views/*
+
+# Environment files
+.env
+.env.backup
+.env.local
+.env.production
+
+# IDE / Editor stuff
+.idea
+.vscode
+*.sublime-workspace
+*.sublime-project
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Other
+/.phpunit.result.cache
+.phpunit.cache
+
+tables_to_keep
+objectives
+TO_IMPLEMENT/
+python_api/venv/
+notes/
+python_api/__pycache__
+python_api/models
+python_api/vectorizers
+python_api/private
