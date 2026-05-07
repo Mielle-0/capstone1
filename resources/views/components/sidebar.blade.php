@@ -40,15 +40,8 @@ body { padding-top: 56px; }
                         <span class="nav-label ms-3">Dashboard</span>
                     </div>
                 </a>
-                <a href="/home" class="nav-item px-4 py-2 d-flex align-items-center justify-content-between text-decoration-none
-                    {{ request()->is('home') ? 'active' : '' }}">
-                    <div class="d-flex align-items-center">
-                        <span class="nav-icon">🏠</span>
-                        <span class="nav-label ms-3">Home</span>
-                    </div>
-                </a>
 
-                @if(auth()->user()->hasAnyRole(['Super Admin', 'Encoder']))
+                @if(auth()->user()->hasAnyRole(['Encoder']))
                 <a href="/encode" class="nav-item px-4 py-2 d-flex align-items-center justify-content-between text-decoration-none
                     {{ request()->is('encode') ? 'active' : '' }}">
                     <div class="d-flex align-items-center">
@@ -59,7 +52,7 @@ body { padding-top: 56px; }
                 @endif
 
                 {{-- For Validation --}}
-                @if(auth()->user()->hasAnyRole(['Super Admin', 'Validator']))
+                @if(auth()->user()->hasAnyRole(['Validator']))
                 <a href="/validation" class="nav-item px-4 py-2 d-flex align-items-center justify-content-between text-decoration-none {{ request()->is('validation') ? 'active' : '' }}">
                     <div class="d-flex align-items-center">
                         <span class="nav-icon">✓</span>
@@ -72,7 +65,7 @@ body { padding-top: 56px; }
                 @endif
 
                 {{-- For Action --}}
-                @if(auth()->user()->hasAnyRole(['Super Admin', 'Department Head']))
+                @if(auth()->user()->hasAnyRole(['Department Head']))
                 <a href="/action" class="nav-item px-4 py-2 d-flex align-items-center justify-content-between text-decoration-none {{ request()->is('action') ? 'active' : '' }}">
                     <div class="d-flex align-items-center">
                         <span class="nav-icon">⚡</span>
@@ -85,7 +78,7 @@ body { padding-top: 56px; }
                 @endif
 
                 {{-- For Verification --}}
-                @if(auth()->user()->hasAnyRole(['Super Admin', 'Verifier']))
+                @if(auth()->user()->hasAnyRole(['Verifier']))
                 <a href="/verification" class="nav-item px-4 py-2 d-flex align-items-center justify-content-between text-decoration-none {{ request()->is('verification') ? 'active' : '' }}">
                     <div class="d-flex align-items-center">
                         <span class="nav-icon">🔍</span>
@@ -100,7 +93,7 @@ body { padding-top: 56px; }
         </div>
 
         <!-- Feedback for Action -->
-        @if(auth()->user()->hasAnyRole(['Super Admin', 'Department Head']))
+        @if(auth()->user()->hasAnyRole(['Department Head']))
         <div class="section mb-4">
             <div class="section-header px-4 py-2 text-uppercase small text-muted fw-semibold d-flex justify-content-between align-items-center">
                 <span>Feedback for Action</span>
@@ -127,7 +120,7 @@ body { padding-top: 56px; }
         @endif
 
         <!-- Reports and Analytics -->
-        @if(auth()->user()->hasAnyRole(['Super Admin', 'Reports Viewing']))
+        @if(auth()->user()->hasAnyRole(['Reports Viewing']))
         <div class="section mb-4">
             <div class="section-header px-4 py-2 text-uppercase small text-muted fw-semibold d-flex justify-content-between align-items-center">
                 <span>Reports and Analytics</span>
@@ -203,88 +196,12 @@ body { padding-top: 56px; }
                         <span class="nav-icon">🤖</span>
                         <span class="nav-label ms-3">AI Routing Settings</span>
                     </div>
-                    {{-- Optional: A badge if the model needs attention or retraining --}}
-                    {{-- <span class="badge bg-warning rounded-pill">!</span> --}}
                 </a>
             </div>
         </div>
         @endif
     </nav>
 </div>
-
-<style>
-.sidebar {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-    transition: all 0.3s ease;
-}
-
-.section-header {
-    cursor: pointer;
-    transition: all 0.2s ease;
-    border-left: 3px solid transparent;
-}
-
-.section-header:hover {
-    background-color: #f8f9fa;
-    border-left-color: #6c757d;
-}
-
-.section-items {
-    overflow: hidden;
-    transition: max-height 0.3s ease;
-}
-
-.nav-item {
-    color: #495057;
-    transition: all 0.2s ease;
-    border-left: 3px solid transparent;
-    margin: 2px 0;
-}
-
-.nav-item:hover {
-    background-color: #f8f9fa;
-    color: #0d6efd;
-    border-left-color: #0d6efd;
-}
-
-.nav-item.active {
-    background-color: #e7f1ff;
-    color: #0d6efd;
-    border-left-color: #0d6efd;
-    font-weight: 500;
-}
-
-.nav-icon {
-    width: 24px;
-    text-align: center;
-    font-size: 1.1em;
-    opacity: 0.8;
-}
-
-.nav-label {
-    font-size: 0.9em;
-    white-space: nowrap;
-}
-
-.collapse-icon {
-    font-size: 0.8em;
-    opacity: 0.5;
-    transition: transform 0.3s ease;
-}
-
-.collapsed .collapse-icon {
-    transform: rotate(-90deg);
-}
-
-.badge {
-    font-size: 0.7em;
-    min-width: 20px;
-    height: 20px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-</style>
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {

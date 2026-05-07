@@ -1,24 +1,8 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Submit Feedback</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <!-- <link rel="stylesheet" href="{{ asset('css/bootstrap.min.css') }}"> -->
-    <link rel="stylesheet" href="{{ asset('css/bootstrap.min.css') }}">
-    <link rel="stylesheet" href="{{ asset('css/all.min.css') }}">
-    <link rel="stylesheet" href="{{ asset('css/app.css') }}">
+@extends('layouts.portal-layout')
 
-</head>
-<body class="bg-light">
+@section('title', 'Feedback Portal')
 
-<!-- Header -->
-<nav class="navbar navbar-expand-lg navbar-dark bg-header px-5">
-    <div class="container-fluid ml-10vw d-block">
-        <img src="{{ asset('images/um_logo.webp') }}" alt="Logo" height="40" class="me-1">
-        <a class="navbar-brand" href="#"> | Feedback Portal</a>
-    </div>
-</nav>
-
+@section('content')
 
 <div class="container mt-3">
 
@@ -68,7 +52,7 @@
             </div>
         @endif
 
-        <form method="POST" action="/submit-feedback">
+        <form method="POST" action="{{ session('step_one_complete') ? route('feedback.submit') : route('feedback.sendCode') }}">
             @csrf
 
             <div class="card mb-4 shadow-sm">
@@ -79,19 +63,19 @@
                     <div class="row g-3">
                         <div class="col-md-4">
                             <label class="form-label">ID Number</label>
-                            <input type="text" name="id_number" class="form-control @error('id_number') is-invalid @enderror" value="{{ old('id_number') }}">
+                            <input type="text" name="id_number" class="form-control @error('id_number') is-invalid @enderror" value="{{ session('personal_info.id_number', old('id_number')) }}" {{ session('step_one_complete') ? 'disabled' : '' }}>
                         </div>
                         <div class="col-md-4">
                             <label class="form-label">College/Program</label>
-                            <input type="text" name="college_program" class="form-control" value="{{ old('college_program') }}">
+                            <input type="text" name="college_program" class="form-control" value="{{ session('personal_info.college_program', old('college_program')) }}" {{ session('step_one_complete') ? 'disabled' : '' }}>
                         </div>
                         
                         <div class="col-md-4">
                             <label for="branch" class="form-label">Branch <span class="text-danger">*</span></label>
-                            <select name="branch" id="branch" class="form-select @error('branch') is-invalid @enderror">
+                            <select name="branch" id="branch" class="form-select @error('branch') is-invalid @enderror" {{ session('step_one_complete') ? 'disabled' : '' }}>
                                 <option value="">-- Select Branch --</option>
                                 @foreach($branches as $b)
-                                    <option value="{{ $b->branch_id }}" {{ old('branch') == $b->branch_id ? 'selected' : '' }}>
+                                    <option value="{{ $b->branch_id }}" {{ session('personal_info.branch', old('branch')) == $b->branch_id ? 'selected' : '' }}>
                                         {{ $b->branch_id }}
                                     </option>
                                 @endforeach
@@ -100,33 +84,67 @@
 
                         <div class="col-md-4">
                             <label class="form-label">Last Name <span class="text-danger">*</span></label>
-                            <input type="text" name="last_name" class="form-control @error('last_name') is-invalid @enderror" value="{{ old('last_name') }}">
+                            <input type="text" name="last_name" class="form-control @error('last_name') is-invalid @enderror" value="{{ session('personal_info.last_name', old('last_name')) }}" {{ session('step_one_complete') ? 'disabled' : '' }}>
                         </div>
                         <div class="col-md-4">
                             <label class="form-label">First Name <span class="text-danger">*</span></label>
-                            <input type="text" name="first_name" class="form-control @error('first_name') is-invalid @enderror" value="{{ old('first_name') }}">
+                            <input type="text" name="first_name" class="form-control @error('first_name') is-invalid @enderror" value="{{ session('personal_info.first_name', old('first_name')) }}" {{ session('step_one_complete') ? 'disabled' : '' }}>
                         </div>
                         <div class="col-md-4">
                             <label class="form-label">Middle Initial</label>
-                            <input type="text" name="middle_initial" class="form-control" maxlength="1" value="{{ old('middle_initial') }}">
+                            <input type="text" name="middle_initial" class="form-control" maxlength="1" value="{{ session('personal_info.middle_initial', old('middle_initial')) }}" {{ session('step_one_complete') ? 'disabled' : '' }}>
                         </div>
                         <div class="col-md-6">
                             <label class="form-label">E-Mail <span class="text-danger">*</span></label>
-                            <input type="email" name="email" class="form-control @error('email') is-invalid @enderror" value="{{ old('email') }}">
+                            <input type="email" name="email" id="userEmail" class="form-control @error('email') is-invalid @enderror" value="{{ session('personal_info.email', old('email')) }}" {{ session('step_one_complete') ? 'disabled' : '' }}>
                         </div>
                         <div class="col-md-6">
                             <label class="form-label">Phone Number (11 digits) <span class="text-danger">*</span></label>
-                            <input type="tel" name="phone" class="form-control @error('phone') is-invalid @enderror" value="{{ old('phone') }}">
+                            <input type="tel" name="phone" class="form-control @error('phone') is-invalid @enderror" value="{{ session('personal_info.phone', old('phone')) }}" {{ session('step_one_complete') ? 'disabled' : '' }}>
                         </div>
                     </div>
+
+                    @if(!session('step_one_complete'))
+                        <div class="mt-4 d-flex justify-content-between align-items-center flex-row-reverse">
+                            
+
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fa fa-envelope"></i> Send Verification Code
+                            </button>
+
+
+                            <button type="button" id="btnRequestHistory" class="btn btn-outline-secondary d-none">
+                                <i class="fa fa-history"></i> Email My Feedback History
+                            </button>
+                        </div>
+                    @endif
                 </div>
             </div>
 
-            <div class="card mb-4 shadow-sm">
+            @if(session('step_one_complete'))
+            <div class="card mb-4 shadow-sm border-primary">
                 <div class="card-header bg-custom text-white">
-                    <span class="fs-6 mb-0"><i class="fa fa-comment"></i> Your Feedback</span>
+                    <span class="fs-6 mb-0"><i class="fa fa-comment"></i> Your Feedback & Verification</span>
                 </div>
                 <div class="card-body">
+                    
+                    <div class="alert alert-info d-flex align-items-center mb-4">
+                        <i class="fa fa-info-circle me-2"></i>
+                        <div>
+                            A 6-digit verification code has been sent to your contact details. Please enter it below to submit your feedback.
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="form-label fw-bold">Verification Code <span class="text-danger">*</span></label>
+                        <input type="text" name="verification_code" class="form-control form-control-lg w-50 @error('verification_code') is-invalid @enderror" placeholder="Enter 6-digit code" required>
+                        @error('verification_code')
+                            <div class="invalid-feedback">{{ $message }}</div>
+                        @enderror
+                    </div>
+
+                    <hr class="mb-4">
+
                     <div class="mb-3">
                         <label class="form-label">Select Feedback Type <span class="text-danger">*</span></label>
                         <div class="btn-group w-100" role="group">
@@ -151,7 +169,7 @@
                         <textarea name="message" id="message" rows="5" class="form-control @error('message') is-invalid @enderror">{{ old('message') }}</textarea>
                     </div>
 
-                    <div class="form-check mb-3 d-flex align-items-center">
+                    <div class="form-check mb-4 d-flex align-items-center">
                         <input class="form-check-input" type="checkbox" name="consent" id="consent" value="1" required>
                         <label class="form-check-label ms-2" for="consent">
                             I agree to allow my feedback to be reviewed and processed by staff.
@@ -163,21 +181,18 @@
                             <i class="fa fa-question-circle" style="cursor: pointer;"></i>
                         </span>
                     </div>
-                    <!-- <div class="form-check mb-3">
-                        <input class="form-check-input" type="checkbox" name="consent" id="consent" value="1">
-                        <label class="form-check-label" for="consent">I agree to allow my feedback to be reviewed and processed by staff.</label>
-                    </div> -->
 
-                    <!-- Submit Button triggers modal -->
-                    <!-- <button type="button" class="btn btn-primary" style="background:maroon;" data-bs-toggle="modal" data-bs-target="#verificationModal">
-                        <i class="fa fa-paper-plane"></i>
-                        Submit Feedback
-                    </button> -->
-                    <button type="submit" class="btn btn-success">
-                        TEST SUBMIT (No Verification)
-                    </button>
+                    <div class="d-flex justify-content-between">
+                        <a href="{{ route('feedback.form') }}" class="btn btn-outline-secondary">
+                            <i class="fa fa-arrow-left"></i> Edit Personal Details
+                        </a>
+                        <button type="submit" class="btn btn-success">
+                            <i class="fa fa-paper-plane"></i> Submit Feedback
+                        </button>
+                    </div>
                 </div>
             </div>
+            @endif
 
 
         </form>
@@ -236,27 +251,78 @@
 
 </div> <!-- Wrapper -->
 
-<!-- Verification Modal -->
-<div class="modal fade" id="verificationModal" tabindex="-1" aria-labelledby="verificationModalLabel" aria-hidden="true">
-  <div class="modal-dialog">
-    <div class="modal-content">
-      <div class="modal-header bg-primary text-white">
-        <h5 class="modal-title" id="verificationModalLabel">Verify Your Identity</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-      </div>
-      <div class="modal-body">
-        <p>A verification code was sent to your email and phone number. Please enter it below:</p>
-        <input type="text" class="form-control" placeholder="Enter verification code">
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-        <button type="submit" class="btn btn-primary">Verify & Submit</button>
-      </div>
-    </div>
-  </div>
-</div>
-
 <script src="{{ asset('js/bootstrap.bundle.min.js') }}"></script>
+<!-- <script src="{{ asset('js/feedback-portal.js') }}"></script> -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const emailInput = document.getElementById('userEmail');
+    const historyBtn = document.getElementById('btnRequestHistory');
+
+    if (!emailInput || !historyBtn) return;
+
+    // Simple Regex for valid email format
+    const isValidEmail = (email) => {
+        return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+    };
+
+    // Listen for typing in the email field
+    emailInput.addEventListener('input', function(e) {
+        if (isValidEmail(e.target.value)) {
+            historyBtn.classList.remove('d-none'); // Show button
+        } else {
+            historyBtn.classList.add('d-none');    // Hide button
+        }
+    });
+
+    // Handle button click via AJAX so the form doesn't submit
+    historyBtn.addEventListener('click', function() {
+        const email = emailInput.value;
+        const originalHtml = historyBtn.innerHTML;
+        
+        // UI Loading State
+        historyBtn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Sending...';
+        historyBtn.disabled = true;
+
+        // Send background request
+        fetch('{{ route("feedback.requestHistory") }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify({ email: email })
+        })
+        .then(response => {
+            if (!response.ok) throw new Error('Network error');
+            return response.json();
+        })
+        .then(data => {
+            // UI Success State
+            historyBtn.innerHTML = '<i class="fa fa-check"></i> Link Sent!';
+            historyBtn.classList.replace('btn-outline-info', 'btn-success');
+            
+            // Reset button after 3 seconds
+            setTimeout(() => {
+                historyBtn.innerHTML = originalHtml;
+                historyBtn.classList.replace('btn-success', 'btn-outline-info');
+                historyBtn.disabled = false;
+            }, 3000);
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            historyBtn.innerHTML = '<i class="fa fa-exclamation-circle"></i> Error Sending';
+            historyBtn.classList.replace('btn-outline-info', 'btn-danger');
+            
+            setTimeout(() => {
+                historyBtn.innerHTML = originalHtml;
+                historyBtn.classList.replace('btn-danger', 'btn-outline-info');
+                historyBtn.disabled = false;
+            }, 3000);
+        });
+    });
+});
+</script>
 <script>
 document.addEventListener('DOMContentLoaded', function () {
     const categoryRadios = document.querySelectorAll('input[name="category"]');
@@ -307,6 +373,4 @@ document.addEventListener('DOMContentLoaded', function () {
 });
 </script>
 
-
-</body>
-</html>
+@endsection

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use Illuminate\Support\Facades\Auth;
 use App\Models\Feedback;
 use App\Models\Ticket;
 use App\Models\FeedbackType;
@@ -12,6 +13,8 @@ use App\Models\Action;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str; 
+use Illuminate\Support\Facades\DB;
+use Illuminate\Http\JsonResponse;
 
 class WorkflowController extends Controller
 {
@@ -61,15 +64,12 @@ class WorkflowController extends Controller
     // STAGE 2: VALIDATION (Raw -> Ticket)
     public function validationIndex(Request $request) 
     {
-        // 1. Start the query: Pending feedbacks only, loading relationships
-        // $query = Feedback::pending()->with(['type', 'theme']);
         $query = Feedback::pending()->with([
             'type', 
             'theme', 
             'prediction.candidates.department' 
         ]);
 
-        // 2. Search Filter (Name, ID, or Keywords)
         if ($request->filled('search')) {
             $search = $request->search;
             $query->where(function($q) use ($search) {
@@ -119,36 +119,142 @@ class WorkflowController extends Controller
             'feedbacks', 'departments', 'branches', 'types', 
             'threshold', 'aiEnabled' 
         ));
-        // return view('workflow.validation', compact('feedbacks', 'departments', 'branches', 'types'));
     }
 
-    public function processValidation(Request $request, $id) {
+    public function processValidation(Request $request, $id) 
+    {
         $fb = Feedback::findOrFail($id);
-        if($request->action == 'approve') {
-            $fb->update(['fbk_status' => 1, 'fbk_date_validated' => now()]);
 
-            Ticket::create([
-                'tck_uuid' => (string) Str::uuid(),
-                'fbk_id' => $fb->fbk_id,
-                'dep_id' => $request->dep_id,
-                'tck_date_created' => now(),
-                'tck_active' => 1
+        if ($request->action == 'approve') {
+
+            // Decode tagify
+            $selectedData = json_decode($request->dep_ids, true); 
+
+            if (empty($selectedData)) {
+                return back()->with('error', 'Please select at least one department.');
+            }
+
+            DB::transaction(function () use ($fb, $selectedData) {
+                
+                $fb->update([
+                    'fbk_status' => 1, 
+                    'fbk_date_validated' => now(),
+                    'fbk_validated_by' => Auth::id()
+                ]);
+
+                // 2. Create ONE ticket
+                $ticket = Ticket::create([
+                    'tck_uuid' => (string) Str::uuid(),
+                    'fbk_id' => $fb->fbk_id,
+                    'tck_date_created' => now(),
+                    'tck_active' => 1
+                ]);
+
+                $depIds = collect($selectedData)->pluck('value')->toArray();
+                $ticket->departments()->attach($depIds);
+            });
+
+            return redirect()->route('workflow.validation')->with('success', 'Feedback approved and tickets generated.');
+        }
+
+        if ($request->action == 'reject') {
+            $fb->update([
+                'fbk_status' => 2, // 2 = Dropped/Disapproved
+                'fbk_disapprove_details' => $request->fbk_disapprove_details,
+                'fbk_date_validated' => now(),
+                'fbk_validated_by' => Auth::id()
             ]);
 
-            return back()->with('success', 'Feedback approved and ticket generated.');
-
-        } else {
-            $fb->delete(); // Or mark as troll
-            return back()->with('info', 'Feedback has been dropped.');
+            return redirect()->route('workflow.validation')->with('info', 'Feedback has been dropped.');
         }
+
         return back();
+    }
+
+    public function validationDetails($id)
+    {
+        // Fetch the feedback and eager load necessary relationships to prevent N+1 queries
+        $feedback = Feedback::with([
+            'type', 
+            'theme', 
+            'prediction.candidates.department'
+        ])->findOrFail($id);
+
+        if ($feedback->fbk_status !== 0) 
+        {
+            $statusLabel = $feedback->fbk_status == 1 ? 'approved' : 'dropped';
+            return redirect()->route('workflow.validation')
+                ->with('warning', "This feedback (ID: {$id}) has already been {$statusLabel} and cannot be edited.");
+        }
+
+        // Fetch AI Settings
+        $aiEnabled = DB::table('ai_settings')->where('key', 'ai_enabled')->value('value') === 'on';
+        
+        // Convert threshold to decimal (e.g., 70 becomes 0.70) if needed, depending on your DB
+        $rawThreshold = DB::table('ai_settings')->where('key', 'ai_threshold')->value('value') ?? 70;
+        $threshold = $rawThreshold > 1 ? $rawThreshold / 100 : $rawThreshold;
+
+        // Fetch departments grouped by branch for the dropdown
+        $departments = Department::orderBy('branch_id')
+            ->orderBy('dep_name')
+            ->get()
+            ->groupBy('branch_id');
+        
+        $prediction = DB::table('feedback_predictions')
+            ->where('fbk_id', $feedback->fbk_id)
+            ->first();
+
+        $candidates = [];
+        if ($prediction) {
+            $candidates = DB::table('prediction_candidates')
+                ->join('departments', 'prediction_candidates.dep_id', '=', 'departments.dep_id')
+                ->where('prediction_id', $prediction->id)
+                ->orderBy('rank', 'asc')
+                ->select('departments.dep_name', 'prediction_candidates.*')
+                ->get();
+        }
+
+        return view('feedback_to_validate', compact(
+            'feedback', 
+            'aiEnabled', 
+            'threshold', 
+            'departments',
+            'prediction',
+            'candidates'
+        ));
+    }
+
+    public function autocompleteDepartments(Request $request): JsonResponse
+    {
+        $query = $request->get('query');
+
+        $data = Department::with('branch')
+            ->where('dep_name', 'LIKE', "%{$query}%")
+            ->take(10)
+            ->get()
+            ->map(function ($dep) {
+                return [
+                    'value' => $dep->dep_id,
+                    'name'  => $dep->dep_name,
+                    'branch' => $dep->branch->branch_name ?? "Branch {$dep->branch_id}"
+                ];
+            });
+
+        return response()->json($data);
     }
 
     // STAGE 3: ACTION (Department Response)
     public function actionIndex(Request $request) 
     {
-        // 1. Start query for pending tickets and load relationships
         $query = Ticket::active()->pendingAction()->with(['feedback.type', 'feedback.theme']);
+
+        // Filter to only display User's department
+        $userDepartmentIds = DB::table('user_departments')
+            ->where('usr_id', auth()->id())
+            ->pluck('dep_id')
+            ->toArray();
+
+        $query->whereIn('dep_id', $userDepartmentIds);
 
         // 2. Search Filter (Ticket ID, or Feedback details/student name)
         if ($request->filled('search')) {

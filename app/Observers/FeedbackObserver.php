@@ -13,7 +13,11 @@ class FeedbackObserver
     public function created(Feedback $feedback): void
     {
         \Log::info("Observer Fired for Feedback ID: " . $feedback->fbk_id);
-        PredictFeedbackDepartment::dispatch($feedback);
+        PredictFeedbackDepartment::dispatch(
+            $feedback->fbk_id,
+            $feedback->fbk_details,
+            $feedback->branch_id 
+        );
     }
 
     /**

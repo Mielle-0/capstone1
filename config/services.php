@@ -31,4 +31,9 @@ return [
         'region' => env('AWS_DEFAULT_REGION', 'us-east-1'),
     ],
 
+    'ml_api' => [
+        'url' => env('ML_API_URL'),
+        'key' => env('ML_API_KEY'),
+    ],
+
 ];

@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Schema;
 use Faker\Factory as Faker;
 use Carbon\Carbon;
+use App\Models\Feedback;
 
 class FeedbackSeeder extends Seeder
 {
@@ -117,11 +118,6 @@ class FeedbackSeeder extends Seeder
             ];
 
             $feedbacksToStore[] = $feedback;
-            
-            // 30% chance this feedback will be selected for duplication
-            if ($faker->boolean(30)) {
-                $feedbacksForDuplication[] = $feedback;
-            }
         }
 
         foreach ($feedbacksToStore as $feedbackData) {

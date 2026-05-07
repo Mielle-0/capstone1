@@ -41,13 +41,12 @@ class AppServiceProvider extends ServiceProvider
                 // Tickets assigned to departments that are still open
                 // If Dept Head, only count their department's tickets
                 $actionCount = 0;
-                if ($user->hasAnyRole(['Super Admin', 'Department Head'])) {
+                if ($user->hasAnyRole( 'Department Head')) {
                     $actionQuery = Ticket::where('tck_active', 1);
 
-                    if ($user->hasAnyRole('Department Head') && !$user->hasAnyRole('Super Admin')) {
                         $deptIds = $user->departments->pluck('dep_id');
                         $actionQuery->whereIn('dep_id', $deptIds);
-                    }
+                    
                     
                     $actionCount = $actionQuery->count();
                 }

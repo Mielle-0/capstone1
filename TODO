@@ -1,0 +1,60 @@
+
+
+Database
+    - truncate feedbacks, only generate unique feedbacks
+    - generate a script that creates unique feedback and sends it to the Database
+    - (Optional) normalize tables
+
+Login View Page
+    - Add a button for tracking a ticket
+    - Users should be able to respond to their tickets and give satisfaction rating through 1 to 5
+    - use mailpit for sending email
+
+Validation View Page
+    - Create ticket view page, with timelines for user tracking
+    - Clicking the ticket row edits the ticket for assigning departments
+
+Ticket Viewing
+    - ?
+
+Manage departments
+    - Better functionality and restrictions 
+
+Manage Users
+    - Better functionality and restrictions 
+
+
+
+
+
+
+
+Currently
+    - Remove dep_id from Ticket table
+    - Consequences
+    - Pivot table for it
+
+
+
+
+
+
+
+
+
+Finishing Touches
+    - (Optional) Less cluttered view page
+    - Revise login
+    - Performance Concern in UserController line 52
+    - Carousel on Feedback Submission Portal
+    - Department Head when user response
+
+
+Done
+    - Role based Dashboard - 4/19/2026
+    - Enforce RBAC
+        - If no Admin role, no Administrator on Sidebar
+        - if no Reports Viewing role, no Reports and Analytics on Sidebar
+        - if no Department Head role, no Feedback For Action on Sidebar
+
+

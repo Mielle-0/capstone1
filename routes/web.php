@@ -7,7 +7,6 @@ use App\Http\Controllers\TestController;
 use App\Http\Controllers\LoginController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\FeedbackController;
-use App\Http\Controllers\TicketController;
 use App\Http\Controllers\FeedbackPortalController;
 use App\Http\Controllers\WorkflowController;
 /*
@@ -21,13 +20,24 @@ use App\Http\Controllers\WorkflowController;
 |
 */
 // Public Feedback Portal
-Route::get('/', [FeedbackPortalController::class, 'showForm'])->name('feedback.form');
-Route::post('/send-verification', [FeedbackPortalController::class, 'sendVerification'])->name('feedback.verify.send');
+Route::get('/', [FeedbackPortalController::class, 'showForm'])
+    ->name('feedback.form');
 
-Route::post('/submit-feedback', [FeedbackPortalController::class, 'submitFeedback'])
+Route::post('/feedback/send-code', [FeedbackPortalController::class, 'sendCode'])
+    ->name('feedback.sendCode');
+
+Route::post('/feedback/submit', [FeedbackPortalController::class, 'submitFeedback'])
     ->middleware('throttle:3,1') // Only 3 submissions per minute per IP
     ->name('feedback.submit');
 
+Route::get('/my-feedback/view/{email}', [FeedbackPortalController::class, 'guestView'])
+    ->name('feedback.guest.view')
+    ->middleware('signed');
+
+Route::post('/request-feedback-history', [FeedbackPortalController::class, 'sendHistoryLink'])
+    ->name('feedback.requestHistory');
+
+    
 Route::middleware('guest')->group(function () {
     Route::get('/login', function () {
         return view('login');
@@ -40,7 +50,7 @@ Route::middleware('guest')->group(function () {
 
 
 
-Route::middleware('auth')->group(function () {
+Route::middleware(['web', 'auth'])->group(function () {
 
     // All Roles
     Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
@@ -60,6 +70,8 @@ Route::middleware('auth')->group(function () {
     // 2. Validation
     Route::get('/validation', [WorkflowController::class, 'validationIndex'])->name('workflow.validation');
     Route::post('/validate/{id}', [WorkflowController::class, 'processValidation'])->name('workflow.process');
+    Route::get('/validation/details/{id}', [WorkflowController::class, 'validationDetails'])->name('workflow.feedback_details');
+    Route::get('/autocomplete/departments', [WorkflowController::class, 'autocompleteDepartments'])->name('departments.autocomplete');
 
     // 3. Action
     Route::get('/action', [WorkflowController::class, 'actionIndex'])->name('workflow.action');
