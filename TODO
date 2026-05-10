@@ -29,10 +29,18 @@ Manage Users
 
 
 
-Currently
-    - Remove dep_id from Ticket table
-    - Consequences
-    - Pivot table for it
+Currently  
+    - Create timeline for ticket                                - Done  
+    - Allow actions to be written in timeline                   - Done
+    - allow verification in timeline                            - Done
+    - only allow verified roles and departments in timeline     - Done
+    - Allow dept head to make another action when
+         previous is rejected                                   - DONE
+    - allow feedback sender in timeline                         - DONE
+    - allow feedback sender to response to ticket in timeline   - DONE
+
+    - verified action -> email sender ?? create signed url?
+    
 
 
 

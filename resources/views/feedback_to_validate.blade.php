@@ -40,18 +40,6 @@
             </div>
         </div>
 
-        <div class="mb-4">
-            <label for="fbk_disapprove_details" class="form-label fw-bold">
-                <i class="fas fa-exclamation-circle me-2 text-danger"></i>Disapproval Details
-            </label>
-            <textarea 
-                name="fbk_disapprove_details" 
-                id="fbk_disapprove_details" 
-                class="form-control shadow-sm" 
-                rows="4" 
-                placeholder="If you intend to drop this feedback, please explain why here..."></textarea>
-        </div>
-
         <div class="card border-maroon shadow-sm mb-5">
             <div class="card-body p-4">
                 <label class="form-label fw-bold fs-5 mb-3">
@@ -82,7 +70,10 @@
         <div class="sticky-bottom bg-white border-top p-3 shadow-lg card" style="margin: 0 -1.5rem -1.5rem -1.5rem;">
             <div class="container" style="max-width: 900px;">
                 <div class="d-flex gap-3">
-                    <button type="submit" name="action" value="reject" class="btn btn-outline-danger btn-lg px-4 fw-bold" onclick="return confirmDrop()">
+                    <!-- <button type="submit" name="action" value="reject" class="btn btn-outline-danger btn-lg px-4 fw-bold" onclick="return confirmDrop()">
+                        <i class="fas fa-trash me-1"></i> Drop Feedback
+                    </button> -->
+                    <button type="button" class="btn btn-outline-danger btn-lg px-4 fw-bold" data-bs-toggle="modal" data-bs-target="#dropFeedbackModal">
                         <i class="fas fa-trash me-1"></i> Drop Feedback
                     </button>
                     <button type="submit" id="approve-btn" name="action" value="approve" class="btn btn-maroon btn-lg flex-grow-1 fw-bold" >
@@ -95,12 +86,34 @@
     </form>
 </div>
 
+<!-- Drop Modal -->
+<div class="modal fade" id="dropFeedbackModal" tabindex="-1" aria-labelledby="dropFeedbackModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title fw-bold" id="dropFeedbackModalLabel">
+                    <i class="fas fa-exclamation-triangle me-2"></i> Drop Feedback
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4">
+                <p class="text-muted mb-3">You are about to drop this feedback. This action is permanent. Please provide a detailed reason below:</p>
+                <textarea id="modal_disapprove_reason" class="form-control mb-2" rows="4" placeholder="Enter reason here (minimum 5 characters)..."></textarea>
+                <div id="drop-error-msg" class="text-danger small d-none"><i class="fas fa-times-circle me-1"></i> Please provide a detailed reason (at least 5 characters).</div>
+            </div>
+            <div class="modal-footer bg-light border-top-0">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" id="confirm-drop-btn" class="btn btn-danger px-4">Confirm Drop</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 @push('scripts')
 <script>
     document.addEventListener("DOMContentLoaded", function() {
         
         var input = document.querySelector('#dept-autocomplete');
-        
         var initialValue = input.value ? JSON.parse(input.value) : [];
 
         var tagify = new Tagify(input, {
@@ -139,42 +152,85 @@
                     tagify.loading(false).dropdown.show(value); // render the suggestions
                 });
         });
-    });
+
+        const approveBtn = document.getElementById('approve-btn');
+        const mainForm = approveBtn.closest('form');
+
+        // Check for multiple departments
+        approveBtn.addEventListener('click', function(e) {
+            e.preventDefault(); // Stop standard form submission to allow checks
+
+            if (tagify.value.length === 0) {
+                alert("Please select a department before creating a ticket.");
+                tagify.DOM.input.focus(); 
+                return;
+            }
+
+            // Guard: Prevent multiple departments
+            if (tagify.value.length > 1) {
+                alert("Please select ONLY ONE department. Routing to multiple departments is not allowed.");
+                return;
+            }
+
+            const hiddenInput = document.createElement('input');
+            hiddenInput.type = 'hidden';
+            hiddenInput.name = 'action';
+            hiddenInput.value = 'approve';
+            mainForm.appendChild(hiddenInput);
+
+            mainForm.submit();
+        });
 
 
-    // Clicking drop feedback button
-    function confirmDrop() {
-        const reason = document.getElementById('fbk_disapprove_details').value.trim();
-        if (reason.length < 5) {
-            alert("Please provide a detailed reason for disapproval.");
-            return false;
-        }
-        return confirm("Are you sure you want to drop this feedback? This action is permanent.");
-    }
 
+        // HTML Modal for Drop Details
+        const confirmDropBtn = document.getElementById('confirm-drop-btn');
+        const reasonInput = document.getElementById('modal_disapprove_reason');
+        const errorMsg = document.getElementById('drop-error-msg');
 
-    // Clicking create ticket button
-    const approveBtn = document.getElementById('approve-btn');
-    const mainForm = approveBtn.closest('form');
+        confirmDropBtn.addEventListener('click', function() {
+            const reason = reasonInput.value.trim();
 
-    approveBtn.addEventListener('click', function() {
-        if (tagify.value.length === 0) {
-            alert("Please select at least one department before creating a ticket.");
+            // Validate the input
+            if (reason.length < 5) {
+                errorMsg.classList.remove('d-none');
+                reasonInput.classList.add('is-invalid');
+                return; // Stop the function here
+            }
+
+            // If validation passes, hide errors and proceed
+            errorMsg.classList.add('d-none');
+            reasonInput.classList.remove('is-invalid');
+
+            // Create the hidden inputs needed by your controller
+            const hiddenAction = document.createElement('input');
+            hiddenAction.type = 'hidden';
+            hiddenAction.name = 'action';
+            hiddenAction.value = 'reject'; // run the 'reject' block
+
+            const hiddenReason = document.createElement('input');
+            hiddenReason.type = 'hidden';
+            hiddenReason.name = 'fbk_disapprove_details'; // Matches your database/controller
+            hiddenReason.value = reason;
+
+            // Append to the main form and submit
+            mainForm.appendChild(hiddenAction);
+            mainForm.appendChild(hiddenReason);
             
-            // Optional: Bring focus back to the input to help the user
-            tagify.DOM.input.focus(); 
-            return;
-        }
+            // Disable button to prevent double-clicking
+            confirmDropBtn.disabled = true;
+            confirmDropBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Processing...';
+            
+            mainForm.submit();
+        });
 
-        // If validation passes, manually submit the form
-        // We append a hidden input so the controller still gets the 'action' => 'approve'
-        const hiddenInput = document.createElement('input');
-        hiddenInput.type = 'hidden';
-        hiddenInput.name = 'action';
-        hiddenInput.value = 'approve';
-        mainForm.appendChild(hiddenInput);
+        // Clear validation errors when the modal is closed so it's clean next time it opens
+        document.getElementById('dropFeedbackModal').addEventListener('hidden.bs.modal', function () {
+            reasonInput.value = '';
+            reasonInput.classList.remove('is-invalid');
+            errorMsg.classList.add('d-none');
+        });
 
-        mainForm.submit();
     });
 
     // Timeout for status messages

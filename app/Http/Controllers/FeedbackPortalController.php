@@ -6,6 +6,8 @@ use App\Models\Feedback;
 use App\Models\FeedbackType;
 use App\Models\ThematicValue;
 use App\Models\Branch;
+use App\Models\Ticket;
+use App\Models\UserResponse;
 use Illuminate\Support\Str; 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\URL;
@@ -136,7 +138,6 @@ class FeedbackPortalController extends Controller
         $feedbacks = Feedback::with([
                 'tickets.department', 
                 'tickets.actions',
-                'tickets.userResponses'
             ])
             ->where('std_email', $email) 
             ->orderBy('fbk_date_created', 'desc')
@@ -144,11 +145,76 @@ class FeedbackPortalController extends Controller
 
         // If for some reason they have no feedback (e.g., it was deleted), handle it gracefully
         if ($feedbacks->isEmpty()) {
-            return redirect()->back()
+            return redirect('/')
                 ->withErrors(['error' => 'Email has no previous feedbacks.']);
         }
 
         // Return the view displaying their list of feedback
         return view('guest_list', compact('feedbacks', 'email'));
+    }
+
+    public function guestTimeline(Request $request, $email, $id)
+    {
+        $feedback = Feedback::with([
+            'tickets.department',
+            'tickets.responses',
+            'tickets.actions' => function($query) {
+                $query->where('act_status', 1);
+            },
+            'tickets.actions.creator'
+        ])
+        ->where('std_email', $email)
+        ->findOrFail($id);
+
+        return view('guest_timeline', compact('feedback', 'email'));
+    }
+
+    // Function 1: Rate and Close
+    public function guestRate(Request $request, $id)
+    {
+        $request->validate([
+            'email'    => 'required|email',
+            'tck_rate' => 'required|integer|min:1|max:5',
+        ]);
+
+        $ticket = Ticket::with('feedback')->findOrFail($id);
+
+        if ($ticket->feedback->std_email !== $request->email) {
+            abort(403, 'Unauthorized action.');
+        }
+
+        // Apply rating and mark as resolved/closed
+        $ticket->update([
+            'tck_rate' => $request->tck_rate,
+            'tck_rate_date' => now(), // Assuming this is your "resolved" flag based on previous snippets
+        ]);
+
+        return back()->with('success', 'Ticket closed successfully. Thank you for your feedback!');
+    }
+
+    // Function 2: Respond (Keep Open)
+    public function guestReply(Request $request, $id)
+    {
+        $request->validate([
+            'email'       => 'required|email',
+            'res_message' => 'required|string',
+        ]);
+
+        $ticket = Ticket::with('feedback')->findOrFail($id);
+
+        if ($ticket->feedback->std_email !== $request->email) {
+            abort(403, 'Unauthorized action.');
+        }
+
+        // Create the response
+        $ticket->responses()->create([
+            'res_message'      => $request->res_message,
+            'res_date_created' => now(),
+        ]);
+
+        // Send back to department's pending list (forces them to submit another action)
+        $ticket->update(['tck_date_action' => null]);
+
+        return back()->with('success', 'Your reply has been sent back to the department.');
     }
 }

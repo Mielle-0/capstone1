@@ -34,10 +34,19 @@ Route::get('/my-feedback/view/{email}', [FeedbackPortalController::class, 'guest
     ->name('feedback.guest.view')
     ->middleware('signed');
 
+Route::get('/my-feedback/timeline/{email}/{id}', [FeedbackPortalController::class, 'guestTimeline'])
+    ->name('feedback.guest.timeline')
+    ->middleware('signed');
+    
+Route::post('/my-feedback/reply/{id}', [FeedbackPortalController::class, 'guestReply'])
+    ->name('feedback.guest.reply');
+
+Route::post('/my-feedback/rate/{id}', [FeedbackPortalController::class, 'guestRate'])
+    ->name('feedback.guest.rate');
+
 Route::post('/request-feedback-history', [FeedbackPortalController::class, 'sendHistoryLink'])
     ->name('feedback.requestHistory');
 
-    
 Route::middleware('guest')->group(function () {
     Route::get('/login', function () {
         return view('login');
@@ -99,6 +108,9 @@ Route::middleware(['web', 'auth'])->group(function () {
 
     // Put this in your protected/auth route group
     Route::get('/department/{dep_id}', [WorkflowController::class, 'departmentActionIndex'])->name('workflow.department_action');
+
+    // Display TImeline of Ticket
+    Route::get('/timeline/{id}', [WorkflowController::class, 'showTimeline'])->name('workflow.timeline');
 
 });
 

@@ -69,13 +69,16 @@
             <div class="col-12 mb-4">
                 <div class="card shadow-sm border-0 h-100">
                     <div class="card-header bg-light border-bottom d-flex justify-content-between align-items-center py-3">
-                        <h6 class="m-0 font-weight-bold text-maroon">
-                            <i class="fas fa-ticket-alt me-2"></i>Ticket #{{ $t->tck_id }}
+                        <h6 class="m-0 font-weight-bold">
+                            {{-- 1. Made the title clickable --}}
+                            <a href="{{ route('workflow.timeline', $t->feedback->fbk_id) }}" class="text-maroon text-decoration-none" target="_blank">
+                                <i class="fas fa-ticket-alt me-2"></i>Ticket #{{ $t->tck_id }}
+                            </a>
                         </h6>
                         <div>
-                            {{-- Link to full audit trail --}}
-                            <a href="{{ route('workflow.show_ticket', $t->tck_uuid) }}" class="btn btn-sm btn-outline-primary me-2">
-                                <i class="fas fa-history me-1"></i> View History
+                            {{-- 2. Updated the route and icon for the history button --}}
+                            <a href="{{ route('workflow.timeline', $t->feedback->fbk_id) }}" target="_blank" class="btn btn-sm btn-outline-primary me-2">
+                                <i class="fas fa-stream me-1"></i> View Timeline
                             </a>
                             <span class="badge bg-warning text-dark"><i class="fas fa-clock me-1"></i> Pending Action</span>
                         </div>

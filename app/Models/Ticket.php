@@ -78,6 +78,14 @@ class Ticket extends Model
         return $this->belongsTo(User::class, 'tck_verified_by', 'usr_id');
     }
 
+    /**
+     * Relationship with User Responses
+     */
+    public function responses()
+    {
+        return $this->hasMany(UserResponse::class, 'tck_id', 'tck_id');
+    }
+
     // Inside class Ticket
     public function actions()
     {

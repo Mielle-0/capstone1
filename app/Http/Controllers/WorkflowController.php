@@ -142,16 +142,17 @@ class WorkflowController extends Controller
                     'fbk_validated_by' => Auth::id()
                 ]);
 
-                // 2. Create ONE ticket
-                $ticket = Ticket::create([
+                // Extract the first department ID from the Tagify array
+                $departmentId = $selectedData[0]['value'];
+
+                // Create the ticket and assign the dep_id directly
+                Ticket::create([
                     'tck_uuid' => (string) Str::uuid(),
                     'fbk_id' => $fb->fbk_id,
+                    'dep_id' => $departmentId,
                     'tck_date_created' => now(),
                     'tck_active' => 1
                 ]);
-
-                $depIds = collect($selectedData)->pluck('value')->toArray();
-                $ticket->departments()->attach($depIds);
             });
 
             return redirect()->route('workflow.validation')->with('success', 'Feedback approved and tickets generated.');
@@ -338,6 +339,35 @@ class WorkflowController extends Controller
         return back()->with('success', 'Action recorded and submitted for verification.');
     }
 
+    public function showTimeline($id)
+    {
+        $userDepartmentIds = DB::table('user_departments')
+            ->where('usr_id', auth()->id())
+            ->pluck('dep_id')
+            ->toArray();
+
+        $feedback = Feedback::whereHas('tickets', function($query) use ($userDepartmentIds) {
+            // This ensures the feedback has at least one ticket belonging to the user's department.
+            // If they try to access a feedback ID not assigned to them, it throws a 404.
+            $query->whereIn('dep_id', $userDepartmentIds);
+        })
+        ->with([
+            'validator', 
+            // 3. Constrain the eager load so they only see their department's tickets in the timeline
+            'tickets' => function($query) use ($userDepartmentIds) {
+                $query->whereIn('dep_id', $userDepartmentIds)
+                      ->with([
+                          'department', 
+                          'actions.creator', 
+                          'actions.verifier', 
+                          'responses'
+                      ]);
+            }
+        ])->findOrFail($id);
+
+        return view('workflow.timeline', compact('feedback'));
+    }
+
     // STAGE 4: VERIFICATION (Final Approval/Rating)
     public function verificationIndex() 
     {
@@ -370,9 +400,7 @@ class WorkflowController extends Controller
             // Close the ticket
             $ticket->update([
                 'tck_date_verified' => now(),
-                'tck_verified_by' => auth()->id(),
-                'tck_rate' => $request->tck_rate,
-                'tck_rate_date' => now(),
+                'tck_verified_by' => auth()->id()
             ]);
             return back()->with('success', 'Feedback closed and rated.');
         } 
@@ -381,6 +409,8 @@ class WorkflowController extends Controller
         $latestAction?->update([
             'act_status' => 2, // 2 = Rejected/Disapproved
             'act_reject_details' => $request->remarks,
+            'act_date_verified' => now(),
+            'act_verified_by' => auth()->id()
         ]);
 
         // Send ticket back to the Department's "Pending" list
