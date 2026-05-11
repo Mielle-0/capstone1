@@ -65,12 +65,7 @@ Route::middleware(['web', 'auth'])->group(function () {
     Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
     Route::get('/settings', [UserController::class, 'settings'])->name('settings');
     Route::get('/dashboard', [UserController::class, 'dashboard'])->name('dashboard');
-
-
-    Route::get('/feedbacks', [UserController::class, 'feedbacks'])->name('feedbacks');
-    Route::get('/search', [UserController::class, 'search'])->name('search');
-    Route::get('/analytics', [UserController::class, 'analytics'])->name('analytics');
-    Route::get('/tickets/create', [UserController::class, 'settings'])->name('settings');
+    Route::put('/settings/update', [UserController::class, 'updateSettings'])->name('settings.update');
 
 
     Route::get('/encode', [WorkflowController::class, 'encodeIndex'])->name('workflow.encode');
@@ -84,8 +79,9 @@ Route::middleware(['web', 'auth'])->group(function () {
 
     // 3. Action
     Route::get('/action', [WorkflowController::class, 'actionIndex'])->name('workflow.action');
+    Route::get('/department/{dep_id}', [WorkflowController::class, 'actionIndex'])->name('workflow.department_action');
     Route::post('/submit-action/{id}', [WorkflowController::class, 'submitAction'])->name('workflow.submit_action');
-    
+
     // Audit Trail / View Ticket
     Route::get('/ticket/{uuid}', [WorkflowController::class, 'showTicket'])->name('workflow.show_ticket');
 
@@ -105,9 +101,6 @@ Route::middleware(['web', 'auth'])->group(function () {
     // Validator
     Route::get('/for-validation', [FeedbackController::class, 'forValidation'])->name('feedback.validation');
     Route::post('/feedback/validate/{id}', [FeedbackController::class, 'validateFeedback'])->name('feedback.validate');
-
-    // Put this in your protected/auth route group
-    Route::get('/department/{dep_id}', [WorkflowController::class, 'departmentActionIndex'])->name('workflow.department_action');
 
     // Display TImeline of Ticket
     Route::get('/timeline/{id}', [WorkflowController::class, 'showTimeline'])->name('workflow.timeline');

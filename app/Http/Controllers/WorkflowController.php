@@ -245,19 +245,31 @@ class WorkflowController extends Controller
     }
 
     // STAGE 3: ACTION (Department Response)
-    public function actionIndex(Request $request) 
+    public function actionIndex(Request $request, $dep_id = null) 
     {
-        $query = Ticket::active()->pendingAction()->with(['feedback.type', 'feedback.theme']);
+        // 1. Initialize base query
+        $query = Ticket::active()
+            ->pendingAction()
+            ->with(['feedback.type', 'feedback.theme']);
 
-        // Filter to only display User's department
-        $userDepartmentIds = DB::table('user_departments')
-            ->where('usr_id', auth()->id())
-            ->pluck('dep_id')
-            ->toArray();
+        $currentDepartment = null;
 
-        $query->whereIn('dep_id', $userDepartmentIds);
+        // 2. Department Filtering Logic
+        if ($dep_id) {
+            // Specific department logic (formerly departmentActionIndex)
+            $currentDepartment = Department::findOrFail($dep_id);
+            $query->where('dep_id', $dep_id);
+        } else {
+            // General logic (formerly actionIndex)
+            $userDepartmentIds = DB::table('user_departments')
+                ->where('usr_id', auth()->id())
+                ->pluck('dep_id')
+                ->toArray();
+            
+            $query->whereIn('dep_id', $userDepartmentIds);
+        }
 
-        // 2. Search Filter (Ticket ID, or Feedback details/student name)
+        // 3. Search Filter
         if ($request->filled('search')) {
             $search = $request->search;
             $query->where(function($q) use ($search) {
@@ -270,21 +282,21 @@ class WorkflowController extends Controller
             });
         }
 
-        // 3. Branch Filter (Via Feedback relationship)
+        // 4. Branch Filter
         if ($request->filled('branch_id')) {
             $query->whereHas('feedback', function($q) use ($request) {
                 $q->where('branch_id', $request->branch_id);
             });
         }
 
-        // 4. Type Filter (Via Feedback relationship)
+        // 5. Type Filter
         if ($request->filled('typ_id')) {
             $query->whereHas('feedback', function($q) use ($request) {
                 $q->where('typ_id', $request->typ_id);
             });
         }
 
-        // 5. Date Filter (Assuming tickets have a tck_date_created or created_at)
+        // 6. Date Filter
         if ($request->filled('date_from')) {
             $query->whereDate('tck_date_created', '>=', $request->date_from);
         }
@@ -292,14 +304,15 @@ class WorkflowController extends Controller
             $query->whereDate('tck_date_created', '<=', $request->date_to);
         }
 
-        // 6. Sort and Paginate
+        // 7. Sort and Paginate
         $tickets = $query->latest('tck_date_created')->paginate(10)->withQueryString();
 
-        // 7. Data for dropdowns
+        // 8. Data for dropdowns
         $branches = Branch::all();
         $types = FeedbackType::where('typ_active', 1)->get();
 
-        return view('workflow.action', compact('tickets', 'branches', 'types'));
+        // Pass variables to view. $currentDepartment will naturally be null if no $dep_id was passed.
+        return view('workflow.action', compact('tickets', 'branches', 'types', 'currentDepartment'));
     }
 
     public function submitAction(Request $request, $id) 
@@ -418,64 +431,7 @@ class WorkflowController extends Controller
 
         return back()->with('info', 'Action rejected and sent back to department.');
     }
-
-    public function departmentActionIndex(Request $request, $dep_id) 
-    {
-        // 1. Fetch the specific department (to optionally display its name in the view)
-        $currentDepartment = Department::findOrFail($dep_id);
-
-        // 2. Query pending tickets strictly for THIS department
-        $query = Ticket::active()
-            ->pendingAction()
-            ->where('dep_id', $dep_id)
-            ->with(['feedback.type', 'feedback.theme']);
-
-        // 3. Search Filter (Ticket ID, or Feedback details/student name)
-        if ($request->filled('search')) {
-            $search = $request->search;
-            $query->where(function($q) use ($search) {
-                $q->where('tck_id', 'like', "%{$search}%")
-                ->orWhereHas('feedback', function($fbQuery) use ($search) {
-                    $fbQuery->where('std_name', 'like', "%{$search}%")
-                            ->orWhere('std_id_no', 'like', "%{$search}%")
-                            ->orWhere('fbk_details', 'like', "%{$search}%");
-                });
-            });
-        }
-
-        // 4. Branch Filter (Via Feedback relationship)
-        if ($request->filled('branch_id')) {
-            $query->whereHas('feedback', function($q) use ($request) {
-                $q->where('branch_id', $request->branch_id);
-            });
-        }
-
-        // 5. Type Filter (Via Feedback relationship)
-        if ($request->filled('typ_id')) {
-            $query->whereHas('feedback', function($q) use ($request) {
-                $q->where('typ_id', $request->typ_id);
-            });
-        }
-
-        // 6. Date Filter
-        if ($request->filled('date_from')) {
-            $query->whereDate('tck_date_created', '>=', $request->date_from);
-        }
-        if ($request->filled('date_to')) {
-            $query->whereDate('tck_date_created', '<=', $request->date_to);
-        }
-
-        // 7. Sort and Paginate
-        $tickets = $query->latest('tck_date_created')->paginate(10)->withQueryString();
-
-        // 8. Data for dropdowns
-        $branches = Branch::all();
-        $types = FeedbackType::where('typ_active', 1)->get();
-
-        // Pass everything to the exact same 'workflow.action' view
-        return view('workflow.action', compact('tickets', 'branches', 'types', 'currentDepartment'));
-    }
-
+    
     public function showTicket($uuid) 
     {
         // Fetch ticket by UUID with all its history and related data

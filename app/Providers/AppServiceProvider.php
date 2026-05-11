@@ -42,7 +42,8 @@ class AppServiceProvider extends ServiceProvider
                 // If Dept Head, only count their department's tickets
                 $actionCount = 0;
                 if ($user->hasAnyRole( 'Department Head')) {
-                    $actionQuery = Ticket::where('tck_active', 1);
+                    $actionQuery = Ticket::where('tck_active', 1)
+                                        ->whereNull('tck_rate');
 
                         $deptIds = $user->departments->pluck('dep_id');
                         $actionQuery->whereIn('dep_id', $deptIds);
@@ -58,7 +59,8 @@ class AppServiceProvider extends ServiceProvider
                 // Keep your existing sidebarDepartments logic
                 $sidebarDepartments = Department::where('dep_active', 1)
                     ->withCount(['tickets as pending_tickets_count' => function ($query) {
-                        $query->where('tck_active', 1);
+                        $query->where('tck_active', 1)
+                            ->whereNull('tck_rate');
                     }])->get();
 
                 $view->with([

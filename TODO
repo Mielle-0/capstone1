@@ -6,16 +6,7 @@ Database
     - (Optional) normalize tables
 
 Login View Page
-    - Add a button for tracking a ticket
-    - Users should be able to respond to their tickets and give satisfaction rating through 1 to 5
-    - use mailpit for sending email
-
-Validation View Page
-    - Create ticket view page, with timelines for user tracking
-    - Clicking the ticket row edits the ticket for assigning departments
-
-Ticket Viewing
-    - ?
+    - revise and use local files
 
 Manage departments
     - Better functionality and restrictions 
@@ -30,15 +21,10 @@ Manage Users
 
 
 Currently  
-    - Create timeline for ticket                                - Done  
-    - Allow actions to be written in timeline                   - Done
-    - allow verification in timeline                            - Done
-    - only allow verified roles and departments in timeline     - Done
-    - Allow dept head to make another action when
-         previous is rejected                                   - DONE
-    - allow feedback sender in timeline                         - DONE
-    - allow feedback sender to response to ticket in timeline   - DONE
-
+    - Better UI (minimal) for Action and Validation
+    - Remove Branches filter in Actions and other pages
+    - For Action view page
+        - display all tickets without tck_rate
     - verified action -> email sender ?? create signed url?
     
 
@@ -64,5 +50,9 @@ Done
         - If no Admin role, no Administrator on Sidebar
         - if no Reports Viewing role, no Reports and Analytics on Sidebar
         - if no Department Head role, no Feedback For Action on Sidebar
+    - Add a button for tracking a ticket
+    - Users should be able to respond to their tickets and give satisfaction rating through 1 to 5
+    - use mailpit for sending email
+    - ticket viewing
 
 
