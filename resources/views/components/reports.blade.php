@@ -36,7 +36,6 @@
                 <div class="card-body">
                     <h6 class="text-uppercase text-muted fw-bold mb-1">Overdue Tickets</h6>
                     <h2 class="mb-0 text-danger">{{ number_format($overdueTicketsCount ?? 0) }}</h2>
-                    <small class="text-danger fw-medium">Breached SLA</small>
                 </div>
             </div>
         </div>
@@ -57,51 +56,6 @@
 
     <hr class="mb-5 border-secondary opacity-25">
 
-
-    <h6 class="text-uppercase text-muted fw-bold mb-3">Deep Dive Reports</h6>
-    <div class="row mb-5">
-        <div class="col-md-4">
-            <a  class="text-decoration-none">
-                <div class="card shadow-sm border-0 h-100 hover-elevate transition-all bg-primary bg-opacity-10 text-primary">
-                    <div class="card-body d-flex align-items-center gap-3 py-4">
-                        <div class="fs-1">📋</div>
-                        <div>
-                            <h6 class="fw-bold mb-1">Feedback Transactions</h6>
-                            <span class="small opacity-75">View the complete master list and audit trails</span>
-                        </div>
-                    </div>
-                </div>
-            </a>
-        </div>
-        
-        <div class="col-md-4">
-            <a  class="text-decoration-none">
-                <div class="card shadow-sm border-0 h-100 hover-elevate transition-all bg-info bg-opacity-10 text-info">
-                    <div class="card-body d-flex align-items-center gap-3 py-4">
-                        <div class="fs-1">📊</div>
-                        <div>
-                            <h6 class="fw-bold mb-1 text-dark">Transaction Analysis</h6>
-                            <span class="small text-muted">Department workloads, resolution times, and SLA tracking</span>
-                        </div>
-                    </div>
-                </div>
-            </a>
-        </div>
-
-        <div class="col-md-4">
-            <a  class="text-decoration-none">
-                <div class="card shadow-sm border-0 h-100 hover-elevate transition-all bg-success bg-opacity-10 text-success">
-                    <div class="card-body d-flex align-items-center gap-3 py-4">
-                        <div class="fs-1">⭐</div>
-                        <div>
-                            <h6 class="fw-bold mb-1 text-dark">Customer Satisfaction</h6>
-                            <span class="small text-muted">CSAT scores, net promoter, and feedback ratings</span>
-                        </div>
-                    </div>
-                </div>
-            </a>
-        </div>
-    </div>
     
     <style>
         .hover-elevate:hover {

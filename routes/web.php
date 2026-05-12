@@ -9,6 +9,7 @@ use App\Http\Controllers\UserController;
 use App\Http\Controllers\FeedbackController;
 use App\Http\Controllers\FeedbackPortalController;
 use App\Http\Controllers\WorkflowController;
+use App\Http\Controllers\ReportController;
 /*
 |--------------------------------------------------------------------------
 | Web Routes
@@ -92,6 +93,12 @@ Route::middleware(['web', 'auth'])->group(function () {
 
     Route::middleware('role:Super Admin,Encoder')->group(function () {
         Route::get('/encode-feedback', [FeedbackController::class, 'create']);
+    });
+
+    Route::prefix('reports')->name('reports.')->group(function () {
+        Route::get('/transactions', [ReportController::class, 'transactions'])->name('transactions');
+        Route::get('/analysis', [ReportController::class, 'analysis'])->name('analysis');
+        Route::get('/satisfaction', [ReportController::class, 'satisfaction'])->name('satisfaction');
     });
 
 

@@ -127,21 +127,21 @@ body { padding-top: 56px; }
                 <span class="collapse-icon">⌄</span>
             </div>
             <div class="section-items">
-                <a href="/feedback-transactions" class="nav-item px-4 py-2 d-flex align-items-center justify-content-between text-decoration-none
+                <a href="{{ route('reports.transactions') }}" class="nav-item px-4 py-2 d-flex align-items-center justify-content-between text-decoration-none
                     {{ request()->is('feedback-transactions') ? 'active' : '' }}">
                     <div class="d-flex align-items-center">
                         <span class="nav-icon">📋</span>
                         <span class="nav-label ms-3">Feedback Transactions</span>
                     </div>
                 </a>
-                <a href="/transaction-analysis" class="nav-item px-4 py-2 d-flex align-items-center justify-content-between text-decoration-none
+                <a href="{{ route('reports.analysis') }}" class="nav-item px-4 py-2 d-flex align-items-center justify-content-between text-decoration-none
                     {{ request()->is('transaction-analysis') ? 'active' : '' }}">
                     <div class="d-flex align-items-center">
                         <span class="nav-icon">📊</span>
                         <span class="nav-label ms-3">Transaction Analysis</span>
                     </div>
                 </a>
-                <a href="/customer-satisfaction" class="nav-item px-4 py-2 d-flex align-items-center justify-content-between text-decoration-none
+                <a href="{{ route('reports.satisfaction') }}" class="nav-item px-4 py-2 d-flex align-items-center justify-content-between text-decoration-none
                     {{ request()->is('customer-satisfaction') ? 'active' : '' }}">
                     <div class="d-flex align-items-center">
                         <span class="nav-icon">😊</span>

@@ -179,8 +179,8 @@ class UserController extends Controller
 
             // 1. Transaction Overview (Current Month)
             $data['totalFeedbackThisMonth'] = Feedback::where('fbk_date_created', '>=', $currentMonth)->count();
-            $data['resolvedTicketsThisMonth'] = Feedback::where('fbk_status', 3) // Adjust to your actual status column/value
-                ->where('fbk_date_created', '>=', $currentMonth)
+            $data['resolvedTicketsThisMonth'] = Ticket::whereNotNull('tck_rate')
+                ->where('tck_date_created', '>=', $currentMonth)
                 ->count();
 
             // 2. CSAT Overview (Mocking a rating column - adjust to your schema)
