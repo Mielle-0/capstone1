@@ -178,7 +178,7 @@ body { padding-top: 56px; }
                     </div>
                 </a>
 
-                {{-- create a route for this later --}}
+                {{-- create a route for this later 
                 <a href="/admin/feedback-parameters" 
                 class="nav-item px-4 py-2 d-flex align-items-center justify-content-between text-decoration-none
                     {{ request()->is('admin/feedback-parameters*') ? 'active' : '' }}">
@@ -186,7 +186,7 @@ body { padding-top: 56px; }
                         <span class="nav-icon">⚙️</span>
                         <span class="nav-label ms-3">Feedback Parameters</span>
                     </div>
-                </a>
+                </a> --}}
 
                 {{-- AI Prediction Settings --}}
                 <a href="/admin/ai-settings" 

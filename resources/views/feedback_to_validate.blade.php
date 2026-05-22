@@ -33,6 +33,55 @@
                 </div>
             </div>
         </div>
+        
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <label class="form-label fw-bold">
+                    <i class="fas fa-tags me-2 text-maroon"></i>Category Review
+                </label>
+                
+                <select name="typ_id" id="categorySelect" class="form-select form-select-lg shadow-sm bg-white">
+                    <option value="" disabled>Select Category...</option>
+                    @foreach($categories as $category)
+                        @php
+                            $isUserChoice = ($feedback->typ_id == $category->typ_id);
+                            $isAiChoice = ($predictedCategoryId == $category->typ_id);
+                            $label = $category->typ_value; 
+                            
+                            // Append helpful indicators
+                            if ($isUserChoice && $isAiChoice) {
+                                $label .= ' ✓ (User & AI Agreed)';
+                            } elseif ($isAiChoice) {
+                                $label .= ' (AI Predicted)';
+                            } elseif ($isUserChoice) {
+                                $label .= ' (User Input)';
+                            }
+                        @endphp
+                        
+                        <option value="{{ $category->typ_id }}" {{ $isUserChoice ? 'selected' : '' }}>
+                            {{ $label }}
+                        </option>
+                    @endforeach
+                </select>
+
+                @if($predictedCategoryId && $predictedCategoryId != $feedback->typ_id)
+                    @php
+                        // Fetch the name of the AI's predicted category
+                        $aiCategoryName = $categories->firstWhere('typ_id', $predictedCategoryId)->typ_name ?? 'another category';
+                    @endphp
+                    <div class="form-text text-warning fw-bold mt-2">
+                        <i class="fas fa-exclamation-triangle me-1"></i> 
+                        AI suggests changing this to "{{ $aiCategoryName }}" (Confidence: {{ round(($predictionConfidence ?? 0) * 100) }}%).
+                    </div>
+                @elseif($predictedCategoryId && $predictedCategoryId == $feedback->typ_id)
+                    <div class="form-text text-success fw-bold mt-2">
+                        <i class="fas fa-check-circle me-1"></i> 
+                        AI agrees with the user's category selection.
+                    </div>
+                @endif
+            </div>
+        </div>
+
         <div class="mb-4">
             <label class="form-label fw-bold"><i class="fas fa-comment-dots me-2 text-maroon"></i>Feedback Message</label>
             <div class="p-4 bg-white border rounded shadow-sm fs-5" style="min-height: 150px; line-height: 0.7;">

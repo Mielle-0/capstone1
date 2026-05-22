@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Http;
 use App\Models\Feedback;
 use App\Models\Ticket;
 use App\Models\FeedbackType;
@@ -215,13 +216,38 @@ class WorkflowController extends Controller
                 ->get();
         }
 
+        $categories = FeedbackType::all(); 
+
+        $predictedCategoryId = null;
+        $predictionConfidence = null;
+
+        try {
+            $response = Http::connectTimeout(10)
+                ->timeout(5)                   // Give the API 2 minutes to process
+                ->withHeaders(['X-API-KEY' => config('services.ml_api.key')])
+                ->post(config('services.ml_api.url') . '/predict-category', [
+                    'details' => $feedback->fbk_details
+            ]);
+
+            if ($response->successful()) {
+                $data = $response->json();
+                $predictedCategoryId = $data['category'] ?? null;
+                $predictionConfidence = $data['confidence'] ?? null;
+            }
+        } catch (\Exception $e) {
+            
+        }
+
         return view('feedback_to_validate', compact(
             'feedback', 
             'aiEnabled', 
             'threshold', 
             'departments',
             'prediction',
-            'candidates'
+            'candidates',
+            'categories',
+            'predictedCategoryId',
+            'predictionConfidence'
         ));
     }
 
