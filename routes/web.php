@@ -3,7 +3,6 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\AiSettingsController;
-use App\Http\Controllers\TestController;
 use App\Http\Controllers\LoginController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\FeedbackController;
@@ -82,7 +81,8 @@ Route::middleware(['web', 'auth'])->group(function () {
     Route::get('/action', [WorkflowController::class, 'actionIndex'])->name('workflow.action');
     Route::get('/department/{dep_id}', [WorkflowController::class, 'actionIndex'])->name('workflow.department_action');
     Route::post('/submit-action/{id}', [WorkflowController::class, 'submitAction'])->name('workflow.submit_action');
-
+    Route::post('/ticket/{ticket}/reject', [WorkflowController::class, 'dropTicket'])
+    ->name('workflow.reject_ticket');
     // Audit Trail / View Ticket
     Route::get('/ticket/{uuid}', [WorkflowController::class, 'showTicket'])->name('workflow.show_ticket');
 
@@ -91,7 +91,7 @@ Route::middleware(['web', 'auth'])->group(function () {
     Route::post('/verify/{id}', [WorkflowController::class, 'verifyFinal'])->name('workflow.verify');
 
 
-    Route::middleware('role:Super Admin,Encoder')->group(function () {
+    Route::middleware('role:Encoder')->group(function () {
         Route::get('/encode-feedback', [FeedbackController::class, 'create']);
     });
 
@@ -119,20 +119,23 @@ Route::middleware(['web', 'auth'])->group(function () {
 Route::middleware('role:Super Admin')->prefix('admin')->group(function () {
 
     Route::get('/audit-log', [AdminController::class, 'auditLog']);
+    Route::get('/reports/export', [AdminController::class, 'exportReport'])
+        ->name('admin.reports.export');
     
     // Manage Departments Page
     Route::get('/manage-departments', [AdminController::class, 'manage_departments'])->name('admin.departments.index');
     Route::post('/manage-departments/assign', [AdminController::class, 'assignUser'])->name('admin.departments.assign');
-    Route::put('/admin/manage-departments/{id}', [AdminController::class, 'updateDepartment']);
+    Route::put('/manage-departments/{id}', [AdminController::class, 'updateDepartment']);
 
     
     // User Management
     Route::get('/manage-users', [AdminController::class, 'manage_users'])->name('admin.users.index');
     Route::post('/manage-users', [AdminController::class, 'store'])->name('admin.users.store');
-    Route::patch('/manage-users/{id}/toggle', [AdminController::class, 'toggleStatus'])->name('admin.users.toggle');
-    Route::put('/admin/manage-users/{id}', [AdminController::class, 'update']);
+    Route::put('/manage-users/{id}', [AdminController::class, 'update'])->name('admin.users.update');
 
-    Route::get('/admin/resolved-tickets', [AdminController::class, 'resolvedTickets'])->name('admin.resolved_tickets');
+    Route::get('/resolved-tickets', [AdminController::class, 'resolvedTickets'])->name('admin.resolved_tickets');
+    Route::get('/generate-code', [AdminController::class, 'generateUniqueCode'])->name('admin.users.generate-code');
+
 
     // AI Management
     Route::get('/ai-settings', [AiSettingsController::class, 'index'])->name('ai');
@@ -140,24 +143,17 @@ Route::middleware('role:Super Admin')->prefix('admin')->group(function () {
 
 });
 
-// routes/web.php
-Route::get('/feedback/{id}/route', function ($id) {
-    // Read and decode JSON file from public folder
-    $jsonPath = public_path('sample_feedback.json');
-    $feedbackList = json_decode(file_get_contents($jsonPath), true);
 
-    // Find the feedback entry by ID
-    $feedback = collect($feedbackList)->firstWhere('id', (int) $id);
-
-    if (!$feedback) {
-        abort(404, 'Feedback not found');
-    }
-
-    // Add suggested department (could be from model in future, here we use existing department)
-    $feedback['suggested_department'] = $feedback['department'];
-
-    $departments = ['Registrar', 'Finance', 'Library', 'Facilities', 'IT', 'Admissions'];
-
-    return view('admin.route-feedback', compact('feedback', 'departments'));
+Route::middleware('signed')->group(function () {
+    Route::get('/setup-password/{user}', [LoginController::class, 'create'])
+        ->name('password.setup');
+        
+    Route::post('/setup-password/{user}', [LoginController::class, 'store'])
+        ->name('password.setup.store');
 });
 
+// Password Reset Routes
+Route::get('/forgot-password', [LoginController::class, 'showForgotForm'])->name('password.request');
+Route::post('/forgot-password', [LoginController::class, 'sendResetLink'])->name('password.send-email');
+Route::get('/reset-password/{token}', [LoginController::class, 'showResetForm'])->name('password.reset');
+Route::post('/reset-password', [LoginController::class, 'resetPassword'])->name('password.update');

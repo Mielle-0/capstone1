@@ -13,17 +13,6 @@
                         <input type="text" name="search" class="form-control" placeholder="Name, ID, or Keywords..." value="{{ request('search') }}">
                     </div>
                     <div class="col-md-4">
-                        <label class="form-label small fw-bold text-muted">Branch</label>
-                        <select name="branch_id" class="form-select">
-                            <option value="">All Branches</option>
-                            @foreach($branches as $branch)
-                                <option value="{{ $branch->branch_id }}" {{ request('branch_id') == $branch->branch_id ? 'selected' : '' }}>
-                                    {{ $branch->branch_id }}
-                                </option>
-                            @endforeach
-                        </select>
-                    </div>
-                    <div class="col-md-4">
                         <label class="form-label small fw-bold text-muted">Feedback Type</label>
                         <select name="typ_id" class="form-select">
                             <option value="">All Types</option>

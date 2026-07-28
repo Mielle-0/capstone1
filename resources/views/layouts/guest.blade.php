@@ -23,7 +23,7 @@
     <nav class="navbar navbar-dark guest-navbar shadow-sm mb-4">
         <div class="container" style="max-width: 900px;">
             <span class="navbar-brand mb-0 h1 fw-bold">
-                <i class="fas fa-bullhorn me-2"></i> Feedback Portal
+                @yield('nav-title')
             </span>
         </div>
     </nav>

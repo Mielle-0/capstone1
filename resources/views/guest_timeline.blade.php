@@ -2,6 +2,10 @@
 
 @section('title', 'Feedback Timeline')
 
+@section('nav-title')
+    <i class="fas fa-bullhorn me-2"></i> Feedback Portal
+@endsection
+
 @section('content')
 <div class="container py-4" style="max-width: 900px;">
     

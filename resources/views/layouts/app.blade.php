@@ -7,6 +7,8 @@
     <link rel="stylesheet" href="{{ asset('css/bootstrap.min.css') }}">
     <link rel="stylesheet" href="{{ asset('css/tom-select.bootstrap5.min.css') }}">
     <link rel="stylesheet" href="{{ asset('css/app.css') }}">
+
+    @yield('styles')
 </head>
 <body>
 

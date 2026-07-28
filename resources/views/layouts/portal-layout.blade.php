@@ -7,10 +7,12 @@
     <link rel="stylesheet" href="{{ asset('css/all.min.css') }}">
     <link rel="stylesheet" href="{{ asset('css/app.css') }}">
 
+    @yield('styles')
 </head>
 <body class="bg-light">
 
 <!-- Header -->
+
 <nav class="navbar navbar-expand-lg navbar-dark bg-header px-5">
     <div class="container-fluid ml-10vw d-block">
         <img src="{{ asset('images/um_logo.webp') }}" alt="Logo" height="40" class="me-1">
@@ -20,4 +22,7 @@
 
 @yield('content')
 
+<script src="{{ asset('js/bootstrap.bundle.min.js') }}"></script>
+@yield('scripts')
 </body>
+</html>

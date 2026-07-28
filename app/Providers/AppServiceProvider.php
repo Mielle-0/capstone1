@@ -35,8 +35,12 @@ class AppServiceProvider extends ServiceProvider
             if (Auth::check()) {
                 $user = Auth::user();
 
+                $userBranchId = auth()->user()->branch_id ?? null;
+
                 // Feedbacks that haven't been turned into tickets yet
-                $validationCount = Feedback::where('fbk_status', 0)->count();
+                $validationCount = Feedback::where('fbk_status', 0)                    
+                                        ->where('branch_id', $userBranchId)
+                                        ->count();
 
                 // Tickets assigned to departments that are still open
                 // If Dept Head, only count their department's tickets

@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Http;
 use App\Charts\FeedbackChart;
 use App\Charts\TopDepartmentsChart;
 use App\Charts\VolumeChart;
@@ -16,6 +18,7 @@ use App\Models\AiSetting;
 use App\Models\FeedbackPrediction;
 use App\Models\Ticket;
 use App\Models\Action;
+use App\Models\Role;
 
 class UserController extends Controller
 {
@@ -39,33 +42,163 @@ class UserController extends Controller
                 ->take(5)
                 ->get();
 
-            // Get distribution of active roles
-            // Note: Adjust the namespace and table/column names if your Role model differs
-            $data['roleDistribution'] = \App\Models\Role::withCount(['users' => function($query) {
+            
+            $data['roleDistribution'] = Role::withCount(['users' => function($query) {
                     $query->where('usr_active', 1);
                 }])
                 ->where('rol_active', 1)
                 ->get();
 
             $data['currentAiVersion'] = AiSetting::get('active_model_version', 'v1.0');
-            $data['autoRouteThreshold'] = AiSetting::get('auto_route_threshold', 85);
 
-            $verifiedPredictions = FeedbackPrediction::with('topCandidate')
-                ->whereNotNull('verified_dept_id')
-                ->get();
+            // Handle threshold scale (e.g., UI might save 70 for 70%, but we need 0.70)
+            $rawThreshold = AiSetting::get('ai_threshold', 70);
+            $data['currentThreshold'] = (float) ($rawThreshold > 1 ? $rawThreshold / 100 : $rawThreshold * 100);
 
-            $totalVerified = $verifiedPredictions->count();
-            $correctCount = $verifiedPredictions->filter(fn($pred) => $pred->wasAiCorrect())->count();
-            
-            $data['totalVerifiedPredictions'] = $totalVerified;
-            $data['aiAccuracyRate'] = $totalVerified > 0 
-                ? round(($correctCount / $totalVerified) * 100, 1) 
+
+            // How many tickets did the AI route?
+            $totalAiRouted = FeedbackPrediction::where('requires_intervention', false)->count();
+
+            // How many were rejected by the departments? (From the previous triage logic)
+            $totalRejected = Ticket::where('tck_active', 0)
+                ->where('tck_disapprove_details', 'LIKE', '%Misclassified by AI%')
+                ->distinct('fbk_id')
+                ->count('fbk_id');
+
+            $successfulRoutes = max(0, $totalAiRouted - $totalRejected);
+
+            $data['totalAiRouted'] = $totalAiRouted;
+            $data['aiSuccessRate'] = $totalAiRouted > 0 
+                ? round(($successfulRoutes / $totalAiRouted) * 100, 1) 
                 : 0;
 
-            $data['recentPredictions'] = FeedbackPrediction::with(['topCandidate.department', 'verifiedDepartment'])
+            $data['recentPredictions'] = FeedbackPrediction::with(['topCandidate.department'])
                 ->orderBy('id', 'desc')
                 ->take(5)
                 ->get();
+
+
+            // ==========================================
+            // NEW: Language Distribution Metrics
+            // ==========================================
+            
+            // Get raw counts grouped by language
+            $langStats = FeedbackPrediction::select('detected_language', \DB::raw('COUNT(*) as count'))
+                ->whereNotNull('detected_language')
+                ->groupBy('detected_language')
+                ->orderByDesc('count')
+                ->get();
+
+            $totalLanguagePredictions = $langStats->sum('count');
+
+            // Map ISO codes to readable names (Add more if your model supports them)
+            $languageMap = [
+                'en' => 'English',
+                'tl' => 'Tagalog',
+                'ceb' => 'Cebuano',
+                'unknown' => 'Unknown'
+            ];
+
+            $data['languageDistribution'] = $langStats->map(function ($item) use ($languageMap, $totalLanguagePredictions) {
+                $rawCode = strtolower($item->detected_language);
+                
+                // Set human-readable language name (fallback to uppercase code if not in map)
+                $item->formatted_language = $languageMap[$rawCode] ?? strtoupper($rawCode);
+                
+                // Calculate percentage
+                $item->percentage = $totalLanguagePredictions > 0 
+                    ? round(($item->count / $totalLanguagePredictions) * 100, 1) 
+                    : 0;
+                    
+                return $item;
+            });
+
+
+            // Misclassification Metrics & Triage Data
+            
+            // Total count of tickets rejected/dropped by departments
+            $data['totalMisclassifications'] = Ticket::where('tck_active', 0)
+                ->where('tck_disapprove_details', 'LIKE', '%Misclassified by AI%')
+                ->count();
+
+            // Breakdown of misclassifications by Department (for visual metrics)
+            $data['misclassificationsByDept'] = Ticket::where('tck_active', 0)
+                ->where('tck_disapprove_details', 'LIKE', '%Misclassified by AI%')
+                ->selectRaw('dep_id, COUNT(*) as count')
+                ->with('department')
+                ->groupBy('dep_id')
+                ->orderByDesc('count')
+                ->get();
+
+            // Active Triage Table: Tickets kicked back by departments waiting for Admin correction
+            $data['misclassifiedTickets'] = Ticket::with(['feedback.type', 'department', 'actionBy'])
+                ->where('tck_active', 0)
+                ->where('tck_disapprove_details', 'LIKE', '%Misclassified by AI%')
+                // NEW: Only include this if the parent feedback is still waiting for action
+                ->whereHas('feedback', function ($query) {
+                    $query->where('fbk_status', 0); 
+                })
+                ->orderBy('tck_date_action', 'desc')
+                ->take(10)
+                ->get();
+
+
+            $data['aiApiStatus'] = Cache::remember('ml_api_status', 60, function () {
+                try {
+                    // Timeout prevents dashboard from hanging if python server is dead
+                    $response = Http::timeout(3)->get(config('services.ml_api.url') . '/');
+                    
+                    if ($response->successful()) {
+                        $health = $response->json();
+                        // Optional: You can also check $health['model_loaded'] here if you want
+                        if (isset($health['status']) && $health['status'] === 'online') {
+                            return 'Online';
+                        }
+                    }
+                    return 'Offline';
+                } catch (\Exception $e) {
+                    return 'Offline';
+                }
+            });
+
+            // ==========================================
+            // NEW: Confidence Bracket Metrics (For Report Table)
+            // ==========================================
+            
+            // Normalize threshold to a decimal (e.g., 0.70) for database comparison
+            $decimalThreshold = $rawThreshold > 1 ? $rawThreshold / 100 : (float)$rawThreshold;
+
+            // 1. High Precision (>= 85%) and successfully auto-routed
+            // We query through the topCandidate relationship to check the highest probability
+            $data['countHighPrecision'] = FeedbackPrediction::whereHas('topCandidate', function ($query) {
+                    $query->where('probability', '>=', 0.85);
+                })
+                ->where('requires_intervention', false)
+                ->count();
+
+            // 2. Standard Confidence (Threshold up to 84.9%) and successfully auto-routed
+            $data['countStandardConfidence'] = FeedbackPrediction::whereHas('topCandidate', function ($query) use ($decimalThreshold) {
+                    $query->where('probability', '>=', $decimalThreshold)
+                          ->where('probability', '<', 0.85);
+                })
+                ->where('requires_intervention', false)
+                ->count();
+
+            // 3. Low Confidence (< Threshold) - Automatically flagged for triage
+            $data['countLowConfidence'] = FeedbackPrediction::whereHas('topCandidate', function ($query) use ($decimalThreshold) {
+                    $query->where('probability', '<', $decimalThreshold);
+                })
+                // Optional: You can explicitly check intervention here, though your routing logic should guarantee it's true
+                ->where('requires_intervention', true) 
+                ->count();
+
+            // 4. Restricted Category Override 
+            // (Confidence was high enough to route, but policy forced intervention e.g., Complaints)
+            $data['countRestrictedOverride'] = FeedbackPrediction::whereHas('topCandidate', function ($query) use ($decimalThreshold) {
+                    $query->where('probability', '>=', $decimalThreshold);
+                })
+                ->where('requires_intervention', true)
+                ->count();
         }
 
 

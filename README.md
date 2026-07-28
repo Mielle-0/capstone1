@@ -121,3 +121,31 @@ php artisan db:seed --class=FeedbackSeeder
 └── .gitignore          
 
 ```
+
+
+
+
+
+## TO RUN:
+
+sudo systemctl start mysql      # Database
+sudo systemctl start apache     # Web UI for Database
+sudo systemctl start docker     # Container for Helpers
+sudo docker start mailpit       # Mailing Service for Local
+
+
+On laravel-capstone folder dir:
+php artisan serve
+php artisan queue:work          
+
+
+On fms_ai_api folder dir:
+source venv/bin/activate
+uvicorn main:app --port 5000
+
+
+Cloudflared termial:
+cloudflared tunnel run --url http://127.0.0.1:8000 laravel-capstone
+
+## to be implemented:
+    - SMS via ADB or LTE Module

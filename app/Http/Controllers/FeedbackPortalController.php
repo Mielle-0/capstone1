@@ -74,8 +74,8 @@ class FeedbackPortalController extends Controller
         // Validate the feedback details AND the inputted code
         $request->validate([
             'verification_code' => 'required|numeric',
-            'category' => 'required|integer', 
-            'thm_id' => 'required|integer', 
+            // 'category' => 'required|integer', 
+            // 'thm_id' => 'required|integer', 
             'message' => 'required|string|min:10',
             'consent' => 'accepted',
         ]);
@@ -98,8 +98,8 @@ class FeedbackPortalController extends Controller
         $feedback->std_name = $fullName;
         $feedback->std_email = $personalInfo['email'];
         $feedback->branch_id = $personalInfo['branch']; 
-        $feedback->typ_id = $request->category; 
-        $feedback->thm_id = $request->thm_id;   
+        // $feedback->typ_id = $request->category; 
+        // $feedback->thm_id = $request->thm_id;   
         $feedback->fbk_details = $request->message;
         $feedback->fbk_status = 0;
         $feedback->fbk_date_created = now();

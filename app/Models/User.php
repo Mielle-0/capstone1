@@ -17,9 +17,11 @@ class User extends Authenticatable
     
     protected $fillable = [
         'usr_code',
-        'usr_name', 
+        'usr_name',
+        'usr_email', 
         'usr_password',
         'usr_active',
+        'branch_id',
     ];
     
     public function getAuthPassword()
@@ -78,6 +80,11 @@ class User extends Authenticatable
                     ->whereNull('tck_verified_by')
                     ->where('tck_active', 1); 
             }]);
+    }
+
+    public function branch()
+    {
+        return $this->belongsTo(Branch::class, 'branch_id', 'branch_id');
     }
 
     /**

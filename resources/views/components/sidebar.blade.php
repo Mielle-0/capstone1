@@ -21,6 +21,17 @@ body { padding-top: 56px; }
     margin-left: 260px;
     padding: 20px;
 }
+.section-header {
+    cursor: pointer;
+    user-select: none; /* Prevents text highlighting when double-clicked */
+}
+.collapse-icon {
+    transition: transform 0.3s ease;
+}
+/* When collapsed, rotate the arrow to point right */
+.section.collapsed .collapse-icon {
+    transform: rotate(-90deg); 
+}
 </style>
 
 <!-- resources/views/components/sidebar.blade.php -->
@@ -28,9 +39,10 @@ body { padding-top: 56px; }
     <!-- Navigation -->
     <nav class="sidebar-nav py-3">
         <!-- Main Section -->
-        <div class="section mb-4">
-            <div class="section-header px-4 py-2 text-uppercase small text-muted fw-semibold">
-                Main
+        <div class="section mb-4" id="sidebar-main">
+            <div class="section-header px-4 py-2 text-uppercase small text-muted fw-semibold d-flex justify-content-between align-items-center">
+                <span>Main</span>
+                <i class="fas fa-chevron-down collapse-icon"></i>
             </div>
             <div class="section-items">
                 <a href="/dashboard" class="nav-item px-4 py-2 d-flex align-items-center justify-content-between text-decoration-none
@@ -94,10 +106,10 @@ body { padding-top: 56px; }
 
         <!-- Feedback for Action -->
         @if(auth()->user()->hasAnyRole(['Department Head']))
-        <div class="section mb-4">
+        <div class="section mb-4" id="sidebar-action">
             <div class="section-header px-4 py-2 text-uppercase small text-muted fw-semibold d-flex justify-content-between align-items-center">
                 <span>Feedback for Action</span>
-                <span class="collapse-icon">⌄</span>
+                <i class="fas fa-chevron-down collapse-icon"></i>
             </div>
             <div class="section-items">
                 @foreach($sidebarDepartments as $department)
@@ -121,10 +133,10 @@ body { padding-top: 56px; }
 
         <!-- Reports and Analytics -->
         @if(auth()->user()->hasAnyRole(['Reports Viewing']))
-        <div class="section mb-4">
+        <div class="section mb-4" id="sidebar-reports">
             <div class="section-header px-4 py-2 text-uppercase small text-muted fw-semibold d-flex justify-content-between align-items-center">
                 <span>Reports and Analytics</span>
-                <span class="collapse-icon">⌄</span>
+                <i class="fas fa-chevron-down collapse-icon"></i>
             </div>
             <div class="section-items">
                 <a href="{{ route('reports.transactions') }}" class="nav-item px-4 py-2 d-flex align-items-center justify-content-between text-decoration-none
@@ -154,10 +166,10 @@ body { padding-top: 56px; }
 
         <!-- Administrator -->
         @if(auth()->user()->hasAnyRole(['Super Admin']))
-        <div class="section">
+        <div class="section" id="sidebar-admin">
             <div class="section-header px-4 py-2 text-uppercase small text-muted fw-semibold d-flex justify-content-between align-items-center">
                 <span>Administrator</span>
-                <span class="collapse-icon">⌄</span>
+                <i class="fas fa-chevron-down collapse-icon"></i>
             </div>
             <div class="section-items">
                 <a href="{{ route('admin.users.index') }}" 
@@ -205,21 +217,49 @@ body { padding-top: 56px; }
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    const sidebar = document.querySelector('.sidebar');
+
+    const savedScrollPosition = localStorage.getItem('sidebarScrollPos');
+    if (savedScrollPosition) {
+        sidebar.scrollTop = savedScrollPosition;
+    }
+
+    window.addEventListener('beforeunload', function() {
+        localStorage.setItem('sidebarScrollPos', sidebar.scrollTop);
+    });
+
     // Collapsible sections
-    document.querySelectorAll('.section-header').forEach(header => {
+    document.querySelectorAll('.section').forEach(section => {
+        const header = section.querySelector('.section-header');
+        const items = section.querySelector('.section-items');
+        const sectionId = section.id; // Grab the unique ID we just added
+        
+        if (!sectionId) return; // Safety check
+
+        // Check localStorage to see if this specific section was saved as 'collapsed'
+        const isCollapsed = localStorage.getItem('sidebar_collapse_' + sectionId) === 'true';
+
+        // Apply saved state immediately on load
+        if (isCollapsed) {
+            section.classList.add('collapsed');
+            items.style.maxHeight = '0';
+        } else {
+            items.style.maxHeight = items.scrollHeight + 'px';
+        }
+
+        // Listen for clicks to toggle and save
         header.addEventListener('click', function() {
-            const section = this.closest('.section');
-            const items = section.querySelector('.section-items');
-            
-            // Toggle collapsed class
             section.classList.toggle('collapsed');
+            const currentlyCollapsed = section.classList.contains('collapsed');
             
-            // If collapsed, hide items
-            if (section.classList.contains('collapsed')) {
+            if (currentlyCollapsed) {
                 items.style.maxHeight = '0';
             } else {
                 items.style.maxHeight = items.scrollHeight + 'px';
             }
+
+            // Save the new state to localStorage
+            localStorage.setItem('sidebar_collapse_' + sectionId, currentlyCollapsed);
         });
     });
 });

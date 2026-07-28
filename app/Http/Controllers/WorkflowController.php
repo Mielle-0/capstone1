@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Http;
 use App\Models\Feedback;
+use App\Models\FeedbackPrediction;
 use App\Models\Ticket;
 use App\Models\FeedbackType;
 use App\Models\Branch;
@@ -22,7 +23,7 @@ class WorkflowController extends Controller
     // STAGE 1: ENCODE
     public function encodeIndex() 
     {
-        $branches = Branch::all(); // Fetches all UM branches
+        $branches = Branch::all(); 
         $types = FeedbackType::where('typ_active', 1)->get();
         
         // We pass all active themes; we will filter them in the browser using JS
@@ -65,11 +66,15 @@ class WorkflowController extends Controller
     // STAGE 2: VALIDATION (Raw -> Ticket)
     public function validationIndex(Request $request) 
     {
-        $query = Feedback::pending()->with([
-            'type', 
-            'theme', 
-            'prediction.candidates.department' 
-        ]);
+        $userBranchId = auth()->user()->branch_id ?? null;
+
+        $query = Feedback::pending()
+            ->where('branch_id', $userBranchId)
+            ->with([
+                'type', 
+                'theme', 
+                'prediction.candidates.department' 
+            ]);
 
         if ($request->filled('search')) {
             $search = $request->search;
@@ -78,11 +83,6 @@ class WorkflowController extends Controller
                 ->orWhere('std_id_no', 'like', "%{$search}%")
                 ->orWhere('fbk_details', 'like', "%{$search}%");
             });
-        }
-
-        // 3. Branch Filter
-        if ($request->filled('branch_id')) {
-            $query->where('branch_id', $request->branch_id);
         }
 
         // 4. Feedback Type Filter
@@ -105,19 +105,19 @@ class WorkflowController extends Controller
         
         // 7. Fetch dropdown data
         // $departments = Department::where('dep_active', 1)->get();
-        $departments = Department::with('branch') // Load branch data in one go
+        $departments = Department::with('branch') 
                         ->where('dep_active', 1)
+                        ->whereIn('branch_id', [$userBranchId, 'UM-MAIN'])
                         ->get()
                         ->groupBy('branch_id'); // Or group by branch->branch_name
 
-        $branches = Branch::all();
         $types = FeedbackType::where('typ_active', 1)->get();
 
         $threshold = \App\Models\AiSetting::get('prediction_threshold', 0.50);
         $aiEnabled = \App\Models\AiSetting::get('ai_enabled', 'yes') === 'yes';
 
         return view('workflow.validation', compact(
-            'feedbacks', 'departments', 'branches', 'types', 
+            'feedbacks', 'departments', 'types', 
             'threshold', 'aiEnabled' 
         ));
     }
@@ -143,29 +143,50 @@ class WorkflowController extends Controller
                     'fbk_validated_by' => Auth::id()
                 ]);
 
-                // Extract the first department ID from the Tagify array
-                $departmentId = $selectedData[0]['value'];
+                // Extract the department ID from the Tagify array
+                // $departmentId = $selectedData[0]['value'];
+                $departmentIds = collect($selectedData)->pluck('value')->toArray();
 
-                // Create the ticket and assign the dep_id directly
-                Ticket::create([
-                    'tck_uuid' => (string) Str::uuid(),
-                    'fbk_id' => $fb->fbk_id,
-                    'dep_id' => $departmentId,
-                    'tck_date_created' => now(),
-                    'tck_active' => 1
+                // 2. Update the Prediction Ground Truth!
+                // This is how you capture the human intervention for your report.
+                FeedbackPrediction::where('fbk_id', $fb->fbk_id)->update([
+                    'verified_dept_ids' => $departmentIds,
+                    'action_taken'      => 'manual_routing',
+                    'action_taken_by'   => Auth::id(),
+                    'action_taken_at'   => now(),
                 ]);
+
+                // 3. Loop through and create a ticket for EVERY selected department
+                foreach ($departmentIds as $depId) {
+                    Ticket::create([
+                        'tck_uuid'         => (string) Str::uuid(),
+                        'fbk_id'           => $fb->fbk_id,
+                        'dep_id'           => $depId,
+                        'tck_date_created' => now(),
+                        'tck_active'       => 1
+                    ]);
+                }
             });
 
             return redirect()->route('workflow.validation')->with('success', 'Feedback approved and tickets generated.');
         }
 
         if ($request->action == 'reject') {
-            $fb->update([
-                'fbk_status' => 2, // 2 = Dropped/Disapproved
-                'fbk_disapprove_details' => $request->fbk_disapprove_details,
-                'fbk_date_validated' => now(),
-                'fbk_validated_by' => Auth::id()
-            ]);
+            DB::transaction(function () use ($fb, $request) {
+                $fb->update([
+                    'fbk_status' => 2, // 2 = Dropped/Disapproved
+                    'fbk_disapprove_details' => $request->fbk_disapprove_details,
+                    'fbk_date_validated' => now(),
+                    'fbk_validated_by' => Auth::id()
+                ]);
+
+                // Optional: Flag the prediction so you know this feedback was entirely rejected
+                FeedbackPrediction::where('fbk_id', $fb->fbk_id)->update([
+                    'action_taken' => 'rejected_as_spam',
+                    'action_taken_by' => Auth::id(),
+                    'action_taken_at' => now(),
+                ]);
+            });
 
             return redirect()->route('workflow.validation')->with('info', 'Feedback has been dropped.');
         }
@@ -175,74 +196,78 @@ class WorkflowController extends Controller
 
     public function validationDetails($id)
     {
-        // Fetch the feedback and eager load necessary relationships to prevent N+1 queries
+        $userBranchId = auth()->user()->branch_id ?? null; 
+        $mainBranchId = 'UM-MAIN';
+        
+        // OPTIMIZATION 1: Eager loading is already perfect here.
         $feedback = Feedback::with([
-            'type', 
-            'theme', 
-            'prediction.candidates.department'
-        ])->findOrFail($id);
+                'type', 
+                'theme', 
+                'prediction.candidates.department'
+            ])
+        ->find($id);
 
-        if ($feedback->fbk_status !== 0) 
-        {
+        // 1. Validation & Authorization
+        if (!$feedback) {
+            return redirect()->route('workflow.validation')
+                ->with('error', "The feedback entry (ID: {$id}) could not be found or no longer exists.");
+        }
+
+        if ($feedback->branch_id !== $userBranchId) {
+            return redirect()->route('workflow.validation')
+                ->with('error', 'Unauthorized access. You can only view feedback assigned to your branch.');
+        }
+
+        if ($feedback->fbk_status !== 0) {
             $statusLabel = $feedback->fbk_status == 1 ? 'approved' : 'dropped';
             return redirect()->route('workflow.validation')
                 ->with('warning', "This feedback (ID: {$id}) has already been {$statusLabel} and cannot be edited.");
         }
 
-        // Fetch AI Settings
+        // 2. Fetch Base Settings & Reference Data
         $aiEnabled = DB::table('ai_settings')->where('key', 'ai_enabled')->value('value') === 'on';
-        
-        // Convert threshold to decimal (e.g., 70 becomes 0.70) if needed, depending on your DB
         $rawThreshold = DB::table('ai_settings')->where('key', 'ai_threshold')->value('value') ?? 70;
         $threshold = $rawThreshold > 1 ? $rawThreshold / 100 : $rawThreshold;
-
-        // Fetch departments grouped by branch for the dropdown
-        $departments = Department::orderBy('branch_id')
-            ->orderBy('dep_name')
-            ->get()
-            ->groupBy('branch_id');
-        
-        $prediction = DB::table('feedback_predictions')
-            ->where('fbk_id', $feedback->fbk_id)
-            ->first();
-
-        $candidates = [];
-        if ($prediction) {
-            $candidates = DB::table('prediction_candidates')
-                ->join('departments', 'prediction_candidates.dep_id', '=', 'departments.dep_id')
-                ->where('prediction_id', $prediction->id)
-                ->orderBy('rank', 'asc')
-                ->select('departments.dep_name', 'prediction_candidates.*')
-                ->get();
-        }
-
         $categories = FeedbackType::all(); 
 
-        $predictedCategoryId = null;
-        $predictionConfidence = null;
+        $allowedDepartments = Department::with('branch')
+            ->where('dep_active', 1) 
+            ->where(function($q) use ($userBranchId, $mainBranchId) {
+                $q->where('branch_id', $mainBranchId);
+                if ($userBranchId && $userBranchId !== $mainBranchId) {
+                    $q->orWhere('branch_id', $userBranchId);
+                }
+            })
+            ->orderBy('branch_id')
+            ->orderBy('dep_name')
+            ->get()
+            ->map(function ($dep) {
+                return [
+                    'value' => $dep->dep_id,
+                    'name'  => $dep->dep_name,
+                    'branch' => $dep->branch_id 
+                ];
+            });
+        
+        // OPTIMIZATION 2: Use the eager-loaded relationship instead of Raw DB Queries
+        $prediction = $feedback->prediction;
+        $candidates = $prediction ? $prediction->candidates : collect();
 
-        try {
-            $response = Http::connectTimeout(10)
-                ->timeout(5)                   // Give the API 2 minutes to process
-                ->withHeaders(['X-API-KEY' => config('services.ml_api.key')])
-                ->post(config('services.ml_api.url') . '/predict-category', [
-                    'details' => $feedback->fbk_details
-            ]);
-
-            if ($response->successful()) {
-                $data = $response->json();
-                $predictedCategoryId = $data['category'] ?? null;
-                $predictionConfidence = $data['confidence'] ?? null;
-            }
-        } catch (\Exception $e) {
+        if ($candidates->isEmpty()) {
             
+            session()->now('warning', 'AI prediction is currently unavailable or still processing. Please assign the category and department manually.');
         }
+
+        // OPTIMIZATION 4: Pull category data directly from the DB. 
+        // No HTTP API call needed here anymore!
+        $predictedCategoryId = $prediction ? $prediction->predicted_category : null;
+        $predictionConfidence = $prediction ? $prediction->category_confidence : null;
 
         return view('feedback_to_validate', compact(
             'feedback', 
             'aiEnabled', 
             'threshold', 
-            'departments',
+            'allowedDepartments',
             'prediction',
             'candidates',
             'categories',
@@ -255,15 +280,28 @@ class WorkflowController extends Controller
     {
         $query = $request->get('query');
 
+        $userBranchId = auth()->user()->branch_id ?? null; 
+        $mainBranchId = "UM-MAIN";
+
         $data = Department::with('branch')
-            ->where('dep_name', 'LIKE', "%{$query}%")
+            ->where(function ($q) use ($query) {
+                $q->where('dep_name', 'LIKE', "{$query}%"); 
+            })
+            ->where(function ($q) use ($userBranchId, $mainBranchId) {
+                if ($userBranchId) {
+                    $q->where('branch_id', $userBranchId)
+                      ->orWhere('branch_id', $mainBranchId);
+                }
+            })
+            // Optional: Prioritize exact matches or alphabetical order
+            ->orderBy('dep_name', 'asc') 
             ->take(10)
             ->get()
             ->map(function ($dep) {
                 return [
                     'value' => $dep->dep_id,
                     'name'  => $dep->dep_name,
-                    'branch' => $dep->branch->branch_name ?? "Branch {$dep->branch_id}"
+                    'branch' => $dep->branch->branch_name
                 ];
             });
 
@@ -333,12 +371,10 @@ class WorkflowController extends Controller
         // 7. Sort and Paginate
         $tickets = $query->latest('tck_date_created')->paginate(10)->withQueryString();
 
-        // 8. Data for dropdowns
-        $branches = Branch::all();
         $types = FeedbackType::where('typ_active', 1)->get();
 
         // Pass variables to view. $currentDepartment will naturally be null if no $dep_id was passed.
-        return view('workflow.action', compact('tickets', 'branches', 'types', 'currentDepartment'));
+        return view('workflow.action', compact('tickets', 'types', 'currentDepartment'));
     }
 
     public function submitAction(Request $request, $id) 
@@ -376,6 +412,40 @@ class WorkflowController extends Controller
         ]);
 
         return back()->with('success', 'Action recorded and submitted for verification.');
+    }
+
+    public function dropTicket(Request $request, Ticket $ticket)
+    {
+        DB::transaction(function () use ($ticket, $request) {
+            
+            // 1. Drop the ticket
+            $ticket->update([
+                'tck_active' => 0,
+                'tck_disapprove_details' => $request->input('reason', 'Misclassified by AI'),
+                'tck_date_action' => now(),
+                'tck_action_by' => auth()->id(),
+            ]);
+
+            // 2. Check if the parent Feedback has any other active tickets
+            $activeTicketsCount = Ticket::where('fbk_id', $ticket->fbk_id)
+                                        ->where('tck_active', 1)
+                                        ->count();
+
+            // 3. If no active tickets remain, revert the Feedback to pending (0)
+            if ($activeTicketsCount === 0) {
+                Feedback::where('fbk_id', $ticket->fbk_id)->update(['fbk_status' => 0]);
+            }
+
+            // 4. Update the Prediction so the AI report captures the failure
+            FeedbackPrediction::where('fbk_id', $ticket->fbk_id)->update([
+                'action_taken' => 'rejected_by_dept',
+                // We clear the verified IDs because the AI was wrong, and an admin needs to set the right one later
+                'verified_dept_ids' => null 
+            ]);
+            
+        });
+
+        return redirect()->back()->with('success', 'Ticket dropped and sent back to triage.');
     }
 
     public function showTimeline($id)

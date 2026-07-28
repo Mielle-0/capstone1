@@ -95,12 +95,17 @@
     </div>
 
 
-    <div class="d-flex justify-content-between align-items-end mb-4 mt-5">
+    <div class="d-flex justify-content-between align-items-center mb-4 pb-3 border-bottom">
         <div>
-            <h5 class="text-secondary fw-bold mb-1">AI Routing Performance</h5>
-            <span class="text-muted small">Monitor machine learning accuracy and thresholds</span>
+            <h5 class="text-secondary fw-bold mb-1">AI Routing Performance & Triage</h5>
+            <span class="text-muted small">Monitor machine learning accuracy, model thresholds, and department rejections</span>
         </div>
         <a href="/admin/ai-settings" class="btn btn-sm btn-outline-dark px-3">Configure AI</a>
+        <!-- <div class="d-flex gap-2">
+            <button onclick="window.print()" class="btn btn-outline-secondary btn-sm px-3">
+            <i class="fas fa-print me-1"></i> Print / Save PDF
+        </button> -->
+    </div>
     </div>
 
     <div class="row mb-4">
@@ -109,9 +114,9 @@
                 <div class="card-body d-flex flex-column justify-content-center">
                     <h6 class="text-uppercase text-white-50 fw-bold mb-2">Model Accuracy (All Time)</h6>
                     <div class="d-flex align-items-baseline gap-2">
-                        <h1 class="mb-0 fw-bold">{{ $aiAccuracyRate ?? '0' }}%</h1>
-                        <span class="badge {{ ($aiAccuracyRate ?? 0) >= 80 ? 'bg-success' : 'bg-warning text-dark' }}">
-                            {{ $totalVerifiedPredictions ?? 0 }} Verifications
+                        <h1 class="mb-0 fw-bold">{{ $aiSuccessRate ?? '0' }}%</h1>
+                        <span class="badge {{ ($aiSuccessRate ?? 0) >= 80 ? 'bg-success' : 'bg-warning text-dark' }}">
+                            {{ $totalAiRouted ?? 0 }} Verifications
                         </span>
                     </div>
                 </div>
@@ -123,17 +128,29 @@
                 <div class="card-body d-flex flex-column justify-content-center">
                     <h6 class="text-uppercase text-muted fw-bold mb-3">System Parameters</h6>
                     <div class="row text-center">
-                        <div class="col-4 border-end">
+                        <div class="col-3 border-end">
                             <small class="text-muted d-block text-uppercase mb-1">Model Version</small>
                             <span class="fs-5 fw-bold text-dark">{{ $currentAiVersion ?? 'v1.0' }}</span>
                         </div>
-                        <div class="col-4 border-end">
-                            <small class="text-muted d-block text-uppercase mb-1">Auto-Route Threshold</small>
-                            <span class="fs-5 fw-bold text-dark">{{ $autoRouteThreshold ?? '85' }}%</span>
+                        <div class="col-3 border-end">
+                            <small class="text-muted d-block text-uppercase mb-1">Threshold</small>
+                            <span class="fs-5 fw-bold text-dark">{{ $currentThreshold }}%</span>
                         </div>
-                        <div class="col-4">
+                        <div class="col-3 border-end">
+                            <small class="text-muted d-block text-uppercase mb-1">Total Rejections</small>
+                            <span class="fs-5 fw-bold text-danger">{{ $totalMisclassifications ?? 0 }}</span>
+                        </div>
+                        <div class="col-3">
                             <small class="text-muted d-block text-uppercase mb-1">Status</small>
-                            <span class="badge bg-success-subtle text-success border border-success-subtle px-3 py-2 rounded-pill">Online</span>
+                            @if(isset($aiApiStatus) && $aiApiStatus === 'Online')
+                                <span class="badge bg-success-subtle text-success border border-success-subtle px-3 py-2 rounded-pill">
+                                    <i class="fas fa-circle small me-1" style="font-size: 0.5rem; vertical-align: middle;"></i> Online
+                                </span>
+                            @else
+                                <span class="badge bg-danger-subtle text-danger border border-danger-subtle px-3 py-2 rounded-pill" title="Could not connect to {{ config('services.ml_api.url') }}">
+                                    <i class="fas fa-times-circle me-1"></i> Offline
+                                </span>
+                            @endif
                         </div>
                     </div>
                 </div>
@@ -141,64 +158,262 @@
         </div>
     </div>
 
-    <div class="card shadow-sm border-0 mb-5">
-        <div class="card-header bg-white border-bottom-0 pt-4 pb-0">
-            <h6 class="mb-0 fw-bold text-muted text-uppercase">Recent Predictions vs Actual</h6>
+    
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-white border-bottom-0 pt-4">
+                    <h6 class="mb-0 fw-bold text-muted text-uppercase"><i class="fas fa-chart-bar me-2 text-danger"></i> Rejections by Department</h6>
+                    <small class="text-muted">Shows which departments receive the highest volume of misrouted AI tickets</small>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        @forelse($misclassificationsByDept ?? [] as $metric)
+                            <div class="col-md-3 mb-3">
+                                <div class="p-3 border rounded bg-light">
+                                    <div class="small text-muted fw-bold text-truncate">{{ $metric->department->dep_name ?? 'Unknown Dept' }}</div>
+                                    <div class="fs-4 fw-bold text-dark mt-1">{{ $metric->count }} <span class="small font-weight-normal text-muted font-size-sm">rejections</span></div>
+                                </div>
+                            </div>
+                        @empty
+                            <div class="col-12 text-center text-muted py-3">
+                                <small>No department rejection data recorded yet. Great routing stability!</small>
+                            </div>
+                        @endforelse
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {{-- NEW: Language Distribution Metrics --}}
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-white border-bottom-0 pt-4">
+                    <h6 class="mb-0 fw-bold text-muted text-uppercase">
+                        <i class="fas fa-language me-2 text-info"></i> Language Distribution
+                    </h6>
+                    <small class="text-muted">Volume of incoming feedback broken down by AI-detected language</small>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        @forelse($languageDistribution ?? [] as $lang)
+                            <div class="col-md-4 mb-3">
+                                <div class="p-3 border rounded bg-light d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <div class="small text-muted fw-bold text-uppercase">{{ $lang->formatted_language ?? 'Unknown' }}</div>
+                                        <div class="fs-4 fw-bold text-dark mt-1">{{ number_format($lang->count) }}</div>
+                                    </div>
+                                    @if(isset($lang->percentage))
+                                        <div class="text-end">
+                                            <span class="badge bg-info-subtle text-info border border-info-subtle px-2 py-1">
+                                                {{ $lang->percentage }}%
+                                            </span>
+                                        </div>
+                                    @endif
+                                </div>
+                            </div>
+                        @empty
+                            <div class="col-12 text-center text-muted py-3">
+                                <small>No language detection data recorded yet.</small>
+                            </div>
+                        @endforelse
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {{-- NEW: Admin Triage Datatable for Misclassified/Rejected Tickets --}}
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-header bg-white border-bottom-0 pt-4 pb-0 d-flex justify-content-between align-items-center">
+            <h6 class="mb-0 fw-bold text-muted text-uppercase"><i class="fas fa-exclamation-triangle me-2 text-warning"></i>Misclassified Tickets Awaiting Reassignment</h6>
+            <span class="badge bg-danger-subtle text-danger border border-danger-subtle">{{ count($misclassifiedTickets ?? []) }} Items</span>
         </div>
         <div class="card-body">
             <div class="table-responsive">
                 <table class="table table-hover align-middle mb-0">
                     <thead class="table-light">
                         <tr>
-                            <th class="ps-3 border-0">Ticket ID</th>
-                            <th class="border-0">AI Prediction</th>
-                            <th class="border-0">Confidence</th>
-                            <th class="border-0">Verified Department</th>
-                            <th class="border-0">Result</th>
+                            <th class="ps-3 border-0">Ticket #</th>
+                            <th class="border-0">Original Feedback Snippet</th>
+                            <th class="border-0">Rejected From Dept</th>
+                            <th class="border-0">Action By / Date</th>
+                            <th class="border-0 text-end pe-3">Action</th>
                         </tr>
                     </thead>
                     <tbody class="border-top-0">
-                        @forelse($recentPredictions ?? [] as $prediction)
+                        @forelse($misclassifiedTickets ?? [] as $ticket)
                             <tr>
-                                <td class="ps-3 fw-bold text-primary">#{{ $prediction->fbk_id }}</td>
+                                <td class="ps-3 fw-bold text-primary">#{{ $ticket->tck_id }}</td>
                                 <td>
-                                    @if($prediction->topCandidate)
-                                        {{ $prediction->topCandidate->department->dep_name ?? 'Unknown Dept' }}
-                                    @else
-                                        <span class="text-muted fst-italic">No prediction</span>
-                                    @endif
+                                    <span class="text-muted text-truncate d-inline-block" style="max-width: 250px;">
+                                        "{{ $ticket->feedback->fbk_details ?? 'No details' }}"
+                                    </span>
                                 </td>
                                 <td>
-                                    @if($prediction->topCandidate)
-                                        <div class="d-flex align-items-center gap-2">
-                                            <div class="progress flex-grow-1" style="height: 6px;">
-                                                <div class="progress-bar bg-primary" style="width: {{ $prediction->topCandidate->probability * 100 }}%"></div>
-                                            </div>
-                                            <span class="small text-muted">{{ number_format($prediction->topCandidate->probability * 100, 1) }}%</span>
-                                        </div>
-                                    @endif
-                                </td>
-                                <td class="fw-medium">
-                                    {{ $prediction->verifiedDepartment->dep_name ?? 'Pending...' }}
+                                    <span class="badge bg-secondary">{{ $ticket->department->dep_name ?? 'N/A' }}</span>
                                 </td>
                                 <td>
-                                    @if(!$prediction->verified_dept_id)
-                                        <span class="badge bg-light text-dark border">Pending</span>
-                                    @elseif($prediction->wasAiCorrect())
-                                        <span class="badge bg-success-subtle text-success border border-success-subtle">Correct</span>
-                                    @else
-                                        <span class="badge bg-danger-subtle text-danger border border-danger-subtle">Incorrect</span>
-                                    @endif
+                                    <span class="d-block small fw-bold">{{ $ticket->actionBy->usr_name ?? 'Staff' }}</span>
+                                    <span class="text-muted small">{{ $ticket->tck_date_action ? \Carbon\Carbon::parse($ticket->tck_date_action)->format('M d, Y h:i A') : 'N/A' }}</span>
+                                </td>
+                                <td class="text-end pe-3">
+                                    {{-- Link to your admin re-assignment workflow page --}}
+                                    <a href="{{ route('workflow.feedback_details', $ticket->feedback->fbk_id) }}" class="btn btn-sm btn-outline-dark px-3" target="_blank">
+                                        <i class="fas fa-random me-1"></i> Re-route
+                                    </a>
                                 </td>
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="5" class="text-center py-4 text-muted">No recent AI predictions found.</td>
+                                <td colspan="5" class="text-center py-4 text-muted">
+                                    <i class="fas fa-check-circle text-success me-1"></i> No rejected tickets pending triage right now.
+                                </td>
                             </tr>
                         @endforelse
                     </tbody>
                 </table>
             </div>
+        </div>
+    </div>
+
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-header bg-white border-bottom-0 pt-4 d-flex justify-content-between align-items-center">
+            <div>
+                <h6 class="mb-0 fw-bold text-muted text-uppercase">
+                    <i class="fas fa-sliders-h me-2 text-primary"></i> Confidence Score vs. Intervention Summary
+                </h6>
+                <small class="text-muted">Breakdown of AI predictions and resulting system actions</small>
+            </div>
+            <button data-bs-toggle="modal" data-bs-target="#exportReportModal" class="btn btn-sm btn-outline-secondary">
+                <i class="fas fa-file-pdf me-1"></i> Export Report
+            </button>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-bordered align-middle text-center mb-0">
+                    <thead class="table-light small text-uppercase">
+                        <tr>
+                            <th>Confidence Range</th>
+                            <th>Classification Standard</th>
+                            <th>Volume</th>
+                            <th>Action Captured</th>
+                            <th>Intervention Status</th>
+                        </tr>
+                    </thead>
+                    <tbody class="small">
+                        <tr>
+                            <td class="fw-bold text-success">85.0% - 100.0%</td>
+                            <td>High Precision</td>
+                            <td class="fs-6 fw-bold">{{ $countHighPrecision ?? 0 }}</td>
+                            <td>Auto-Routed</td>
+                            <td><span class="badge bg-success-subtle text-success border border-success-subtle">Bypassed (No Intervention)</span></td>
+                        </tr>
+                        <tr>
+                            <td class="fw-bold text-primary">{{ $currentThreshold }}% - 84.9%</td>
+                            <td>Standard Confidence</td>
+                            <td class="fs-6 fw-bold">{{ $countStandardConfidence ?? 0 }}</td>
+                            <td>Auto-Routed</td>
+                            <td><span class="badge bg-success-subtle text-success border border-success-subtle">Bypassed (No Intervention)</span></td>
+                        </tr>
+                        <tr>
+                            <td class="fw-bold text-danger">&lt; {{ $currentThreshold }}%</td>
+                            <td>Low Confidence</td>
+                            <td class="fs-6 fw-bold">{{ $countLowConfidence ?? 0 }}</td>
+                            <td>Flagged for Triage</td>
+                            <td><span class="badge bg-warning-subtle text-warning border border-warning-subtle">Human Intervention Required</span></td>
+                        </tr>
+                        <tr>
+                            <td class="fw-bold text-secondary">Any (&ge; {{ $currentThreshold }}%)</td>
+                            <td>Restricted Category Override</td>
+                            <td class="fs-6 fw-bold">{{ $countRestrictedOverride ?? 0 }}</td>
+                            <td>Policy Override</td>
+                            <td><span class="badge bg-danger-subtle text-danger border border-danger-subtle">Mandatory Human Review</span></td>
+                        </tr>
+                    </tbody>
+                    <tfoot class="table-light fw-bold">
+                        <tr>
+                            <td colspan="2" class="text-end">Total Predictions Monitored:</td>
+                            <td class="fs-6 text-primary">
+                                {{ ($countHighPrecision ?? 0) + ($countStandardConfidence ?? 0) + ($countLowConfidence ?? 0) + ($countRestrictedOverride ?? 0) }}
+                            </td>
+                            <td colspan="2"></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Export Report Configuration Modal -->
+<div class="modal fade" id="exportReportModal" tabindex="-1" aria-labelledby="exportReportModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content border-0 shadow">
+            <form action="{{ route('admin.reports.export') }}" method="GET" target="_blank">
+                <div class="modal-header bg-light border-bottom-0">
+                    <h5 class="modal-title fw-bold text-dark" id="exportReportModalLabel">
+                        <i class="fas fa-file-export me-2 text-primary"></i> Configure Report
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    
+                    <!-- Report Type Selection -->
+                    <div class="mb-3">
+                        <label class="form-label fw-bold text-muted small text-uppercase">Report Type</label>
+                        <select name="report_type" class="form-select" required>
+                            <option value="intervention_summary">AI Confidence & Intervention Summary</option>
+                            <option value="triage_audit">Misclassified Feedback Report</option>
+                            <option value="raw_predictions">Raw Prediction Data Log</option>
+                        </select>
+                    </div>
+
+                    <!-- Date Range -->
+                    <div class="row mb-3">
+                        <div class="col-6">
+                            <label class="form-label fw-bold text-muted small text-uppercase">Date From</label>
+                            <input type="date" name="date_from" class="form-control" value="{{ now()->subDays(30)->format('Y-m-d') }}" required>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label fw-bold text-muted small text-uppercase">Date To</label>
+                            <input type="date" name="date_to" class="form-control" value="{{ now()->format('Y-m-d') }}" required>
+                        </div>
+                    </div>
+
+                    <!-- Filter Options -->
+                    <div class="mb-4">
+                        <label class="form-label fw-bold text-muted small text-uppercase">Intervention Filter</label>
+                        <select name="intervention_filter" class="form-select">
+                            <option value="all">Include All Predictions</option>
+                            <option value="auto_only">Only Auto-Routed (Successful)</option>
+                            <option value="manual_only">Only Human Interventions (Triaged)</option>
+                        </select>
+                    </div>
+
+                    <!-- Export Format -->
+                    <div>
+                        <label class="form-label fw-bold text-muted small text-uppercase d-block">Export Format</label>
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="radio" name="format" id="formatPdf" value="pdf" checked>
+                            <label class="form-check-label" for="formatPdf"><i class="fas fa-file-pdf text-danger me-1"></i> PDF Document</label>
+                        </div>
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="radio" name="format" id="formatCsv" value="csv">
+                            <label class="form-check-label" for="formatCsv"><i class="fas fa-file-csv text-success me-1"></i> CSV / Excel</label>
+                        </div>
+                    </div>
+
+                </div>
+                <div class="modal-footer bg-light border-top-0">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary px-4">
+                        <i class="fas fa-download me-1"></i> Generate Report
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
 </div>

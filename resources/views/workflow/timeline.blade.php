@@ -68,7 +68,7 @@
                         </h6>
                         <small class="text-muted">{{ $feedback->fbk_date_validated->format('M d, Y h:i A') }}</small>
                     </div>
-                    <p class="mb-1 small text-muted">Action taken by: <strong>{{ $feedback->validator->name ?? 'System/Unknown' }}</strong></p>
+                    <p class="mb-1 small text-muted">Action taken by: <strong>{{ $feedback->validator->usr_name ?? 'System/Unknown' }}</strong></p>
                     
                     @if($feedback->fbk_status == 2 && $feedback->fbk_disapprove_details)
                         <div class="alert alert-danger mt-2 mb-0 py-2 small">

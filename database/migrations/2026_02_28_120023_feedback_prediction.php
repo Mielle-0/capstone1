@@ -37,20 +37,15 @@ return new class extends Migration
                 ->references('fbk_id')
                 ->on('feedbacks')
                 ->onDelete('cascade');
-
-            $table->foreign('verified_dept_id')
-                ->references('dep_id')
-                ->on('departments')
-                ->onDelete('set null');
         });
 
         // Child Table (The "Simplification" of JSON)
         Schema::create('prediction_candidates', function (Blueprint $table) {
             $table->id();
             $table->unsignedBigInteger('prediction_id');
-            $table->unsignedInteger('dep_id'); // Links to your departments.dep_id
+            $table->unsignedInteger('dep_id'); 
             $table->decimal('probability', 5, 4);
-            $table->integer('rank'); // 1, 2, or 3
+            $table->integer('rank'); 
 
             $table->foreign('prediction_id')
                 ->references('id')

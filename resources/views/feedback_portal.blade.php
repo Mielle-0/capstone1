@@ -137,13 +137,13 @@
 
                     <div class="mb-4">
                         <label class="form-label fw-bold">Verification Code <span class="text-danger">*</span></label>
-                        <input type="text" name="verification_code" class="form-control form-control-lg w-50 @error('verification_code') is-invalid @enderror" placeholder="Enter 6-digit code" required>
+                        <input type="text" name="verification_code" class="form-control @error('verification_code') is-invalid @enderror" placeholder="Enter 6-digit code" required>
                         @error('verification_code')
                             <div class="invalid-feedback">{{ $message }}</div>
                         @enderror
                     </div>
 
-                    <hr class="mb-4">
+                    <!-- <hr class="mb-4">
 
                     <div class="mb-3">
                         <label class="form-label">Select Feedback Type <span class="text-danger">*</span></label>
@@ -162,7 +162,7 @@
                         <select id="category-select" name="thm_id" class="form-select @error('thm_id') is-invalid @enderror">
                             <option value="">Please select a feedback type above</option>
                         </select>
-                    </div>
+                    </div> -->
 
                     <div class="mb-3">
                         <label for="message" class="form-label">Message <span class="text-danger">*</span></label>
@@ -182,10 +182,11 @@
                         </span>
                     </div>
 
-                    <div class="d-flex justify-content-between">
-                        <a href="{{ route('feedback.form') }}" class="btn btn-outline-secondary">
+                    <div class="d-flex justify-content-end">
+                    <!-- <div class="d-flex justify-content-between"> -->
+                        <!-- <a href="{{ route('feedback.form') }}" class="btn btn-outline-secondary">
                             <i class="fa fa-arrow-left"></i> Edit Personal Details
-                        </a>
+                        </a> -->
                         <button type="submit" class="btn btn-success">
                             <i class="fa fa-paper-plane"></i> Submit Feedback
                         </button>
@@ -215,7 +216,7 @@
                         </h2>
                         <div id="collapse1" class="accordion-collapse collapse show" data-bs-parent="#faqAccordion">
                             <div class="accordion-body">
-                                You may submit feedback without entering your name or email.
+                                You may submit feedback without entering your name.
                             </div>
                         </div>
                     </div>
@@ -251,8 +252,9 @@
 
 </div> <!-- Wrapper -->
 
-<script src="{{ asset('js/bootstrap.bundle.min.js') }}"></script>
-<!-- <script src="{{ asset('js/feedback-portal.js') }}"></script> -->
+@endsection
+
+@section('scripts')
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const emailInput = document.getElementById('userEmail');

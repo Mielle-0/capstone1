@@ -1,5 +1,6 @@
 @extends('layouts.app')
 
+@section('title', 'Ticket Verification')
 @section('content')
 <div class="container py-4">
 
@@ -57,14 +58,6 @@
                                     </div>
                                     
                                     <div class="col-md-5">
-                                        <label class="form-label fw-bold small text-maroon">User Satisfaction Rate</label>
-                                        <select name="tck_rate" class="form-select border-maroon">
-                                            <option value="5">Excellent (5)</option>
-                                            <option value="4">Good (4)</option>
-                                            <option value="3" selected>Average (3)</option>
-                                            <option value="2">Poor (2)</option>
-                                            <option value="1">Terrible (1)</option>
-                                        </select>
                                     </div>
 
                                     <div class="col-md-7 text-end d-flex align-items-end justify-content-end">

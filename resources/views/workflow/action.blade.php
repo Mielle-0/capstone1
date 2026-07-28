@@ -20,17 +20,6 @@
                         <input type="text" name="search" class="form-control" placeholder="Ticket #, Name, ID, or Keywords..." value="{{ request('search') }}">
                     </div>
                     <div class="col-md-4">
-                        <label class="form-label small fw-bold text-muted">Branch</label>
-                        <select name="branch_id" class="form-select">
-                            <option value="">All Branches</option>
-                            @foreach($branches as $branch)
-                                <option value="{{ $branch->branch_id }}" {{ request('branch_id') == $branch->branch_id ? 'selected' : '' }}>
-                                    {{ $branch->branch_id }}
-                                </option>
-                            @endforeach
-                        </select>
-                    </div>
-                    <div class="col-md-4">
                         <label class="form-label small fw-bold text-muted">Feedback Type</label>
                         <select name="typ_id" class="form-select">
                             <option value="">All Types</option>
@@ -150,7 +139,20 @@
                                             <label class="small text-muted text-uppercase fw-bold d-block mb-1">Evidence / Attachment (Optional)</label>
                                             <input type="file" name="act_file" class="form-control form-control-sm">
                                         </div>
-                                        <div class="col-md-5 text-end pt-3">
+                                        <!-- <div class="col-md-5 text-end pt-3">
+                                            <button type="submit" class="btn btn-maroon shadow-sm px-4" onclick="return confirm('Submit this action for verification?')">
+                                                <i class="fas fa-paper-plane me-1"></i> Submit Action
+                                            </button>
+                                        </div> -->
+                                        <div class="col-md-5 text-end pt-3 d-flex justify-content-end align-items-center gap-2">
+                                            
+                                            {{-- ONLY show if the AI routed this automatically --}}
+                                            @if($t->feedback->prediction && $t->feedback->prediction->action_taken === 'auto_routed')
+                                                <button type="button" class="btn btn-outline-danger shadow-sm px-3" data-bs-toggle="modal" data-bs-target="#rejectModal{{ $t->tck_id }}">
+                                                    <i class="fas fa-times-circle me-1"></i> Not My Dept
+                                                </button>
+                                            @endif
+
                                             <button type="submit" class="btn btn-maroon shadow-sm px-4" onclick="return confirm('Submit this action for verification?')">
                                                 <i class="fas fa-paper-plane me-1"></i> Submit Action
                                             </button>
@@ -162,6 +164,41 @@
                     </div>
                 </div>
             </div>
+
+            <!-- Reject Ticket Modal for Ticket #{{ $t->tck_id }} -->
+            <div class="modal fade" id="rejectModal{{ $t->tck_id }}" tabindex="-1" aria-labelledby="rejectModalLabel{{ $t->tck_id }}" aria-hidden="true">
+                <div class="modal-dialog modal-dialog-centered">
+                    <div class="modal-content border-0 shadow">
+                        <div class="modal-header bg-light border-bottom">
+                            <h5 class="modal-title fw-bold text-dark" id="rejectModalLabel{{ $t->tck_id }}">
+                                <i class="fas fa-hand-paper text-danger me-2"></i> Reject Ticket #{{ $t->tck_id }}
+                            </h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        
+                        <form action="{{ route('workflow.reject_ticket', $t->tck_id) }}" method="POST">
+                            @csrf
+                            <div class="modal-body p-4 text-center">
+                                <div class="mb-3">
+                                    <i class="fas fa-robot fa-3x text-muted opacity-50"></i>
+                                </div>
+                                <h6 class="fw-bold mb-2">Not your department's concern?</h6>
+                                <p class="small text-muted mb-0">
+                                    Confirming will drop this ticket from your queue and return it to the administrative triage. The system will automatically log this as an AI misclassification.
+                                </p>
+                            </div>
+                            
+                            <div class="modal-footer border-top bg-light justify-content-center">
+                                <button type="button" class="btn btn-outline-secondary px-4" data-bs-dismiss="modal">Cancel</button>
+                                <button type="submit" class="btn btn-danger px-4 shadow-sm">
+                                    <i class="fas fa-undo me-1"></i> Return to Triage
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
         @empty
             {{-- Empty State (Kept your existing empty logic) --}}
             <div class="col-12">

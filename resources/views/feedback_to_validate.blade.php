@@ -41,44 +41,23 @@
                 </label>
                 
                 <select name="typ_id" id="categorySelect" class="form-select form-select-lg shadow-sm bg-white">
-                    <option value="" disabled>Select Category...</option>
+                    <option value="" disabled {{ empty($predictedCategoryId) ? 'selected' : '' }}>Select Category...</option>
+                    
                     @foreach($categories as $category)
                         @php
-                            $isUserChoice = ($feedback->typ_id == $category->typ_id);
                             $isAiChoice = ($predictedCategoryId == $category->typ_id);
                             $label = $category->typ_value; 
                             
-                            // Append helpful indicators
-                            if ($isUserChoice && $isAiChoice) {
-                                $label .= ' ✓ (User & AI Agreed)';
-                            } elseif ($isAiChoice) {
+                            if ($isAiChoice) {
                                 $label .= ' (AI Predicted)';
-                            } elseif ($isUserChoice) {
-                                $label .= ' (User Input)';
                             }
                         @endphp
                         
-                        <option value="{{ $category->typ_id }}" {{ $isUserChoice ? 'selected' : '' }}>
+                        <option value="{{ $category->typ_id }}" {{ $isAiChoice ? 'selected' : '' }}>
                             {{ $label }}
                         </option>
                     @endforeach
                 </select>
-
-                @if($predictedCategoryId && $predictedCategoryId != $feedback->typ_id)
-                    @php
-                        // Fetch the name of the AI's predicted category
-                        $aiCategoryName = $categories->firstWhere('typ_id', $predictedCategoryId)->typ_name ?? 'another category';
-                    @endphp
-                    <div class="form-text text-warning fw-bold mt-2">
-                        <i class="fas fa-exclamation-triangle me-1"></i> 
-                        AI suggests changing this to "{{ $aiCategoryName }}" (Confidence: {{ round(($predictionConfidence ?? 0) * 100) }}%).
-                    </div>
-                @elseif($predictedCategoryId && $predictedCategoryId == $feedback->typ_id)
-                    <div class="form-text text-success fw-bold mt-2">
-                        <i class="fas fa-check-circle me-1"></i> 
-                        AI agrees with the user's category selection.
-                    </div>
-                @endif
             </div>
         </div>
 
@@ -95,21 +74,25 @@
                     <i class="fas fa-share-nodes me-2 text-maroon"></i>Assign to Departments
                 </label>
                 
-                <p class="text-muted small mb-3">Select one or more departments to handle this feedback. A separate ticket will be generated for each.</p>
+                <p class="text-muted small mb-3">Select <strong>one</strong> department to handle this feedback. A separate ticket will be generated for each.</p>
 
                 
                 <script src="{{ asset('js/tagify.js') }}"></script>
-                <script src="{{ asset('tagify.polyfills.min.js') }}"></script>
+                <script src="{{ asset('js/tagify.polyfills.min.js') }}"></script>
                 <link href="{{ asset('css/tagify.css') }}" rel="stylesheet" type="text/css" />
 
                 <div class="mb-4">
                     <label class="form-label fw-bold text-muted small text-uppercase">Assign Departments</label>
                     
                     <input name="dep_ids" 
-                        id="dept-autocomplete" 
-                        class="form-control" 
-                        placeholder="Type department name..."
-                        value='@json($candidates->map(fn($c) => ["value" => $c->dep_id, "name" => $c->dep_name]))'>
+                            id="dept-autocomplete" 
+                            class="form-control" 
+                            placeholder="Type department name..."
+                            value='@json($candidates->map(fn($c) => [
+                                "value" => $c->dep_id, 
+                                "name" => optional($c->department)->dep_name ?? "Unknown Department"
+                            ]))'>
+
                 </div>
 
 
@@ -163,43 +146,37 @@
     document.addEventListener("DOMContentLoaded", function() {
         
         var input = document.querySelector('#dept-autocomplete');
+        
         var initialValue = input.value ? JSON.parse(input.value) : [];
+        var allAllowedDepartments = @json($allowedDepartments);
 
         var tagify = new Tagify(input, {
-            tagTextProp: 'name', // Show the department name in the chip
+            tagTextProp: 'name', 
             enforceWhitelist: true,
             skipInvalid: true,
-            whitelist: initialValue,
+            // maxTags: 1, 
+            whitelist: allAllowedDepartments, 
             dropdown: {
+                maxItems: 100,      
                 closeOnSelect: true,
-                enabled: 1, // Show suggestions after 1 character
+                enabled: 0,         
                 classname: 'dept-suggestions',
                 searchKeys: ['name'] 
             },
             templates: {
-                // This creates the "Grouped by Branch" look in the dropdown
                 dropdownItem: function(item) {
                     return `
                         <div ${this.getAttributes(item)} class='tagify__dropdown__item'>
                             <strong class="text-maroon">${item.name}</strong>
+                            <small class="text-muted d-block">${item.branch}</small>
                         </div>`;
                 }
             }
         });
 
-        // The AJAX "Typeahead" logic
-        tagify.on('input', function(e) {
-            var value = e.detail.value;
-
-            // Show loading state
-            tagify.loading(true);
-
-            fetch("{{ route('departments.autocomplete') }}?query=" + value)
-                .then(res => res.json())
-                .then(function(newWhitelist) {
-                    tagify.whitelist = newWhitelist; // update whitelist
-                    tagify.loading(false).dropdown.show(value); // render the suggestions
-                });
+        tagify.on('click', function(e) {
+            // e.detail.tag targets the specific HTML element you clicked
+            tagify.removeTags(e.detail.tag);
         });
 
         const approveBtn = document.getElementById('approve-btn');
@@ -212,12 +189,6 @@
             if (tagify.value.length === 0) {
                 alert("Please select a department before creating a ticket.");
                 tagify.DOM.input.focus(); 
-                return;
-            }
-
-            // Guard: Prevent multiple departments
-            if (tagify.value.length > 1) {
-                alert("Please select ONLY ONE department. Routing to multiple departments is not allowed.");
                 return;
             }
 
@@ -299,10 +270,35 @@
     .btn-maroon:hover { background-color: #600000; color: white; }
     .border-maroon { border: 1px solid #800000; }
     .sticky-bottom { z-index: 1020; }
-</style>
-<style>
+    
+    
     /* Styling the chips to match your Maroon theme */
+
+    /* Tagify Maroon Theme & Click-to-Remove Styles */
     .tagify__tag {
+        --tag-bg: #800000;
+        --tag-text-color: #fff;
+        border-radius: 20px;
+        cursor: pointer; /* Changes the mouse to a pointing hand on hover */
+        transition: background-color 0.2s ease;
+    }
+    
+    .tagify__tag:hover {
+        --tag-bg: #dc3545; /* Turns red on hover to imply "delete" */
+    }
+
+    /* Completely hide the tiny default 'x' button */
+    .tagify__tag__removeBtn {
+        display: none !important; 
+    }
+    
+    /* Ensure the text has proper padding since the 'x' is gone */
+    .tagify__tag > div {
+        padding: 0.3em 0.8em !important;
+    }
+
+    .text-maroon { color: #800000; }
+    /* .tagify__tag {
         --tag-bg: #800000;
         --tag-text-color: #fff;
         --tag-remove-btn-color: #fff;
@@ -311,6 +307,6 @@
     .tagify__tag:hover {
         --tag-bg: #600000;
     }
-    .text-maroon { color: #800000; }
+    .text-maroon { color: #800000; } */
 </style>
 @endsection

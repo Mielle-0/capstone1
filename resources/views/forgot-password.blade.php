@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login - Staff Portal</title>
+    <title>Forgot Password - Staff Portal</title>
     
     <link rel="stylesheet" href="{{ asset('css/all.min.css') }}">
     <link rel="stylesheet" href="{{ asset('css/bootstrap.min.css') }}">
@@ -39,43 +39,40 @@
 </head>
 <body class="bg-light min-vh-100 d-flex align-items-center justify-content-center p-3">
     
-    <div class="w-100" style="max-width: 450px;">
+    <div class="w-100" style="max-width: 30vw;">
         <div class="card border-0 shadow-lg rounded-3">
             <div class="card-body p-4 p-md-5">
                 
                 <div class="text-center mb-4">
                     <img src="{{ asset('images/um_logo.webp') }}" alt="Portal Logo" class="img-fluid mb-3" style="max-height: 80px;">
-                    <h4 class="fw-bold text-dark mb-1">Staff Portal</h4>
+                    <h4 class="fw-bold text-dark mb-1">Forgot Password</h4>
                 </div>
 
-                <form action="{{ route('login') }}" method="POST">
+                <form action="{{ route('password.send-email') }}" method="POST">
                     @csrf
                     
                     <div class="mb-4">
-                        <label for="usr_code" class="form-label small fw-bold text-secondary">User Code</label>
+                        {{-- 💡 Changed name and id to usr_email to match your database --}}
+                        <label for="usr_email" class="form-label small fw-bold text-secondary">Email Address</label>
                         <input 
-                            type="text" 
-                            id="usr_code" 
-                            name="usr_code" 
-                            value="{{ old('usr_code') }}"
+                            type="email" 
+                            id="usr_email" 
+                            name="usr_email" 
+                            value="{{ old('usr_email') }}"
                             required
                             class="form-control form-control-lg fs-6 bg-light"
-                            placeholder="Enter your user code"
+                            placeholder="user@example.com"
                         >
                     </div>
 
-                    <div class="mb-4">
-                        <label for="password" class="form-label small fw-bold text-secondary">Password</label>
-                        <input 
-                            type="password" 
-                            id="password" 
-                            name="password" 
-                            required
-                            class="form-control form-control-lg fs-6 bg-light"
-                            placeholder="Enter your password"
-                        >
+                    {{-- 💡 Success Message --}}
+                    @if(session('success'))
+                    <div class="alert alert-success small py-2 px-3 mb-4 rounded text-success" role="alert">
+                        {{ session('success') }}
                     </div>
+                    @endif
 
+                    {{-- Error Message --}}
                     @if(session('error'))
                     <div class="alert alert-danger small py-2 px-3 mb-4 rounded text-danger" role="alert">
                         {{ session('error') }}
@@ -84,15 +81,16 @@
 
                     <div class="d-grid mt-2">
                         <button type="submit" class="btn btn-maroon btn-lg fw-bold shadow-sm py-2">
-                            Sign In
+                            Send Email
                         </button>
                     </div>
-                </form>
 
-                <div class="mt-2 pt-2 text-center mb-1">
-                    <a  class="small text-maroon text-decoration-none" style="cursor: pointer;">Forgot Password?</a>
-                </div>
-                
+                    <div class="text-center mt-3">
+                        <a href="{{ route('login') }}" class="small text-decoration-none text-secondary">
+                            <i class="fas fa-arrow-left me-1"></i> Back to Login
+                        </a>
+                    </div>
+                </form>
             </div>
         </div>
     </div>

@@ -1,47 +1,13 @@
 
 
-Database
-    - truncate feedbacks, only generate unique feedbacks
-    - generate a script that creates unique feedback and sends it to the Database
-    - (Optional) normalize tables
-
-Login View Page
-    - revise and use local files
-
-Manage departments
-    - Better functionality and restrictions 
-
-Manage Users
-    - Better functionality and restrictions 
 
 
-
-
-
-
-
-Currently  
-    - Better UI (minimal) for Action and Validation
-    - Remove Branches filter in Actions and other pages
-    - For Action view page
-        - display all tickets without tck_rate
-    - verified action -> email sender ?? create signed url?
-    
-
-
-
-
-
-
-
-
-
-Finishing Touches
+Finishing Touchess
     - (Optional) Less cluttered view page
     - Revise login
     - Performance Concern in UserController line 52
     - Carousel on Feedback Submission Portal
-    - Department Head when user response
+    - Department Head when user respone
 
 
 Done
@@ -56,3 +22,178 @@ Done
     - ticket viewing
 
 
+
+June 24, 2026 | TODO
+    - if $candidates, on Workflow Controller validationDetails function,
+        is empty then run ai api                                                        - DONE
+
+    - Change frontend to tailwind?
+
+    - If feedback is validated, and ticket is created, then verified_dept_id column
+        should be filled in feedback_predictions table
+        Ticket table a better reference?                                                - out of scope
+
+    - Create table for category prediction?
+        And save it for better prediction
+        Or is ticket table a better reference?                                          - out of scope
+
+June 26, 2026 | TODO
+
+    - Mailing service (Resend or Postmark)                      - DONE
+    - Create tunnels for Laravel App and AI API                 - DONE
+
+June 27, 2026 | TODO
+
+    - polished validationDetails function on WorkflowController - DONE
+    - polished user management page and function                - DONE
+    - added mailing function to send to new user                - DONE
+    - adding user on user management                            - DONE
+
+    - Submitting action on both timeline 
+        and action page does not work
+
+    - Add selected department as well for 
+        encoding feedback
+        submit straight as ticket
+
+    - Polish Department Management
+
+    - Polish Reports and Analytics tabs
+
+June 28, 2026 | TODO
+
+    - polish user management, both controller and UI            - DONE
+    - polished sidebar UI                                       - DONE
+    - add forgot password                                       - DONE
+    - change login logo                                         - DONE
+
+June 29, 2026 | TODO
+
+    - added tunnel, using cloudflared                           - DONE
+    - added smtp, using gmail                                   - DONE
+    - mobile view for feedback portal and staff login           - DONE
+
+July 04, 2026 | TODO
+
+    - script, endpoint for capstone                             - DONE
+        - category prediction
+        - department prediction 
+        (features: branch and details + category)
+
+    - script, endpoint for deployment in fms.umin.edu.ph        - after defense
+        - category prediction
+        - department prediction 
+        (features: branch and details)
+
+    - update feedback prediction table for logging              - DONE
+    - update PredictFeedbackDepartment Job to accomodate new model  - DONE
+
+
+July 13, 2026 | TODO
+
+    - remove category and thematic selection on feedback portal - DONE
+        - include the validations
+    - send feedback to category prediction first                - DONE
+    - send feedback with category to department prediction      - DONE
+
+
+July 14, 2026 | TODO
+
+    - Tag feedback as incorrect routing                         - DONE
+    - Multiple creation of tickets when threshold is passed     - DONE
+    - Get dataset distribution by: 
+        Category, Department, Language detected (using langdetect?)
+
+
+July 20, 2026 | TODO
+
+    - Produce report on admin dashboard for misclassified feedback      - DONE
+    - Objective 3:                                                      - DONE 
+        
+        - quantify the confidence scoring as the basis of               - DONE
+            intervention
+
+        - automatically capture the action taken                        - DONE
+            - if ticket with auto_routed prediction has action,
+                then it is accepted
+            - rejected on view page, workflow.action line 151. 
+                controller function name: dropTicket, WorkflowController
+
+
+July 21, 2026 | TODO
+
+    - run train3 v5 again but with proper classes 
+        -to run get_wordcloud.py
+    
+    - "Human intervention will focus on on complaint"                   - DONE
+        - doesnt auto route when complaint category
+            - line 123, PredictFeedbackDepartment Job
+
+    - "Produce report for misclassified feedback"                       - DONE
+        - export report on admin dashboard
+
+
+July 22, 2026 | TODO
+
+    - Must present how the model determines the multi-lingual feedback      - DONE
+        - new column for feedbackprediction
+        - new line for endpoint, either use langdetect
+
+    
+
+Currently:
+
+
+
+
+
+
+
+
+
+
+---
+
+### How to implement this right now (The Laravel Side)
+
+**Step 1: Update your Laravel Job (`PredictFeedbackDepartment.php`)**
+Assuming you update your Python API to return `detected_language`, update the Laravel Job payload:
+
+```php
+// Inside the API response parsing:
+$detectedLang = $depData['detected_language'] ?? 'Unknown';
+
+// Inside the DB::transaction create array:
+'detected_language' => $detectedLang,
+
+```
+
+**Step 2: Explain it in your Thesis Document (Chapter 3 / 4)**
+When presenting this to the panel, use this explanation:
+
+> *"To ensure transparency in how multi-lingual feedback is determined, the system utilizes a language detection step prior to classification. The Python ML pipeline identifies the primary language (e.g., English, Tagalog) and passes this metadata back to Laravel. This 'Detected Language' is permanently logged in the `feedback_predictions` table, displayed alongside raw feedback in the Admin Triage interface, and included in the exported analytical reports. This allows administrators to audit whether misclassifications are correlated with specific regional dialects."*
+
+
+
+
+fbk_id
+fbk_uuid
+src_id
+thm_id
+typ_id
+branch_id  
+std_id_no
+std_name 
+std_email 
+std_mobile
+std_program 
+fbk_details 
+fbk_attachment 
+fbk_date_created
+fbk_date_validated
+fbk_validated_by
+fbk_status
+fbk_disapprove_details 
+fbk_active
+fbk_created_by
+ip_address 

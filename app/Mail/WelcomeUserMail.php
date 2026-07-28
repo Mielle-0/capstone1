@@ -8,21 +8,22 @@ use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
+use App\Models\User;
 
-class VerificationCodeMail extends Mailable
+class WelcomeUserMail extends Mailable
 {
     use Queueable, SerializesModels;
 
-    public $verificationCode;
-    public $firstName;
+    public $user;
+    public $signedUrl;
 
     /**
      * Create a new message instance.
      */
-    public function __construct($verificationCode, $firstName)
+    public function __construct(User $user, $signedUrl)
     {
-        $this->verificationCode = $verificationCode;
-        $this->firstName = $firstName;
+        $this->user = $user;
+        $this->signedUrl = $signedUrl;
     }
 
     /**
@@ -31,7 +32,7 @@ class VerificationCodeMail extends Mailable
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: 'Your Verification Code',
+            subject: 'Welcome! Please set your password',
         );
     }
 
@@ -41,7 +42,7 @@ class VerificationCodeMail extends Mailable
     public function content(): Content
     {
         return new Content(
-            view: 'emails.verification-code',
+            view: 'emails.welcome',
         );
     }
 

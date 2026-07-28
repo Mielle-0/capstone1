@@ -13,9 +13,17 @@ class FeedbackObserver
     public function created(Feedback $feedback): void
     {
         \Log::info("Observer Fired for Feedback ID: " . $feedback->fbk_id);
+        
+        $details = trim($feedback->fbk_details ?? '');
+
+        if (empty($details)) {
+            Log::warning("Prediction job skipped for Feedback ID: {$feedback->fbk_id}. Reason: fbk_details is empty.");
+            return; // Exit early, do not dispatch the job
+        }
+
         PredictFeedbackDepartment::dispatch(
             $feedback->fbk_id,
-            $feedback->fbk_details,
+            $details,
             $feedback->branch_id 
         );
     }
