@@ -11,7 +11,7 @@ class AiSettingsController extends Controller
     public function index()
     {
         // Fetch from database, default to 0.50 if not found
-        $threshold = AiSetting::get('ai_threshold', 0.50);
+        $threshold = AiSetting::get('ai_threshold', 0.40);
         
         // Check if AI is enabled (returns 'yes' or 'no')
         $aiEnabled = AiSetting::get('ai_enabled', 'yes') === 'yes';
@@ -23,7 +23,7 @@ class AiSettingsController extends Controller
     {
         // 1. Validate the range input
         $request->validate([
-            'ai_threshold' => 'required|numeric|min:0|max:1',
+            'prediction_threshold' => 'required|numeric|min:0|max:1',
         ]);
 
         // 2. Handle the checkbox (if missing, it means "no")

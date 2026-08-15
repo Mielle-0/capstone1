@@ -42,6 +42,19 @@
             </div>
         @endif
 
+        @if(session('faq_answer'))
+            <div class="alert alert-info border-info shadow-sm mb-4 alert-dismissible fade show" role="alert">
+                <h5 class="alert-heading text-primary">
+                    <i class="fas fa-magic"></i> We found an instant answer for you!
+                </h5>
+                <p class="mb-2 text-muted">Based on the message you submitted, we auto-matched it to this frequently asked question:</p>
+                <hr>
+                <strong>Q: {{ session('faq_title') }}</strong>
+                <p class="mb-0 mt-1">{{ session('faq_answer') }}</p>
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        @endif
+
         @if ($errors->any())
             <div class="alert alert-danger">
                 <ul class="mb-0">
@@ -138,31 +151,21 @@
                     <div class="mb-4">
                         <label class="form-label fw-bold">Verification Code <span class="text-danger">*</span></label>
                         <input type="text" name="verification_code" class="form-control @error('verification_code') is-invalid @enderror" placeholder="Enter 6-digit code" required>
+                        
+                        <!-- SECURE RESEND LINK (Invisible Form) -->
+                        <div class="mt-2 text-end">
+                            <form method="POST" action="{{ route('feedback.resendCode') }}" class="d-inline">
+                                @csrf
+                                <button type="submit" class="btn btn-link p-0 m-0 align-baseline text-decoration-none text-primary small">
+                                    <i class="fa fa-refresh"></i> Code expired? Resend Code
+                                </button>
+                            </form>
+                        </div>
+
                         @error('verification_code')
                             <div class="invalid-feedback">{{ $message }}</div>
                         @enderror
                     </div>
-
-                    <!-- <hr class="mb-4">
-
-                    <div class="mb-3">
-                        <label class="form-label">Select Feedback Type <span class="text-danger">*</span></label>
-                        <div class="btn-group w-100" role="group">
-                            @foreach($types as $type)
-                                <input type="radio" class="btn-check" name="category" 
-                                    id="cat-{{ $type->typ_id }}" value="{{ $type->typ_id }}" 
-                                    {{ old('category') == $type->typ_id ? 'checked' : '' }} autocomplete="off">
-                                <label class="btn btn-outline-primary" for="cat-{{ $type->typ_id }}">{{ $type->typ_value }}</label>
-                            @endforeach
-                        </div>
-                    </div>
-
-                    <div class="mb-3">
-                        <label for="category-select" class="form-label">Specific Category/Theme <span class="text-danger">*</span></label>
-                        <select id="category-select" name="thm_id" class="form-select @error('thm_id') is-invalid @enderror">
-                            <option value="">Please select a feedback type above</option>
-                        </select>
-                    </div> -->
 
                     <div class="mb-3">
                         <label for="message" class="form-label">Message <span class="text-danger">*</span></label>
@@ -216,7 +219,7 @@
                         </h2>
                         <div id="collapse1" class="accordion-collapse collapse show" data-bs-parent="#faqAccordion">
                             <div class="accordion-body">
-                                You may submit feedback without entering your name.
+                                You must enter your first and last name to submit a feedback. 
                             </div>
                         </div>
                     </div>

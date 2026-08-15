@@ -43,14 +43,13 @@ class FeedbackPortalController extends Controller
 
         $verificationCode = rand(100000, 999999);
 
-        // 3. Send the code (Mocked here - replace with actual Mail or SMS logic)
-        // Mail::to($request->email)->send(new \App\Mail\YourVerificationMail($verificationCode));
         \Log::info("Verification code for {$request->email} is {$verificationCode}");
 
         // Store the validated data and code in the session
         session([
             'personal_info' => $validatedData,
             'verification_code' => $verificationCode,
+            'code_expires_at' => now()->addMinutes(20),
             'step_one_complete' => true,
         ]);
 
@@ -59,6 +58,26 @@ class FeedbackPortalController extends Controller
         );
         
         return redirect()->back()->with('status', 'Verification code sent to your email/phone!');
+    }
+
+    public function resendCode()
+    {
+        if (!session()->has('personal_info')) {
+            return redirect()->route('feedback.form');
+        }
+
+        $personalInfo = session('personal_info');
+        $newCode = rand(100000, 999999);
+
+        session([
+            'verification_code' => $newCode,
+            'code_expires_at' => now()->addMinutes(10),
+        ]);
+
+        // Send the email...
+        \Mail::to($personalInfo['email'])->send(new VerificationCodeMail($newCode, $personalInfo['first_name']));
+
+        return redirect()->back()->with('success', 'A new verification code has been sent!');
     }
 
     /**
@@ -79,6 +98,13 @@ class FeedbackPortalController extends Controller
             'message' => 'required|string|min:10',
             'consent' => 'accepted',
         ]);
+
+        // Check if code has expired
+        if (now()->greaterThan(session('code_expires_at'))) {
+            return redirect()->back()
+                ->withErrors(['verification_code' => 'This verification code has expired. Please click the "Resend Code" link below.'])
+                ->withInput();
+        }
 
         // Check if the code matches what we stored in the session
         if ($request->verification_code != session('verification_code')) {
@@ -101,14 +127,58 @@ class FeedbackPortalController extends Controller
         // $feedback->typ_id = $request->category; 
         // $feedback->thm_id = $request->thm_id;   
         $feedback->fbk_details = $request->message;
-        $feedback->fbk_status = 0;
         $feedback->fbk_date_created = now();
-        $feedback->save();
+
+        // Get the user's message
+        $userMessage = strtolower($request->message);
+
+        // Fetch all active FAQs
+        $faqs = \App\Models\Faq::where('is_active', 1)->get();
+        $matchedFaq = null;
+
+        // Loop through all FAQs and check their keywords
+        foreach ($faqs as $faq) {
+            // Split the comma-separated keywords into an array
+            $keywords = explode(',', strtolower($faq->keywords));
+            
+            foreach ($keywords as $keyword) {
+                $keyword = trim($keyword);
+                
+                // If the keyword exists in the user's message, we have a match!
+                if (!empty($keyword) && str_contains($userMessage, $keyword)) {
+                    $matchedFaq = $faq;
+                    break 2; // Break out of both loops immediately
+                }
+            }
+        }
+
+        if ($matchedFaq) {
+            // Save as Auto-Resolved
+            $feedback->fbk_status = 2; 
+            $feedback->save(); 
+            
+            session()->forget(['personal_info', 'verification_code', 'step_one_complete']);
+
+            // Redirect back with the FAQ data
+            return redirect()->route('feedback.form')
+                ->with('success', 'Feedback recorded.')
+                ->with('faq_title', $matchedFaq->question)
+                ->with('faq_answer', $matchedFaq->answer);
+        } else {
+            // Save as Pending -> Triggers Observer -> ML Model
+            $feedback->fbk_status = 0; 
+            $feedback->save(); 
+            
+            session()->forget(['personal_info', 'verification_code', 'step_one_complete']);
+
+            return redirect()->route('feedback.form')
+                ->with('success', 'Your feedback has been submitted successfully! Reference ID: ' . substr($feedback->fbk_uuid, 0, 8));
+        }
 
         // Clear the session so the form resets for the next submission
-        session()->forget(['personal_info', 'verification_code', 'step_one_complete']);
+        // session()->forget(['personal_info', 'verification_code', 'step_one_complete']);
 
-        return redirect()->route('feedback.form')->with('success', 'Your feedback has been submitted successfully! Reference ID: ' . substr($feedback->fbk_uuid, 0, 8));
+        // return redirect()->route('feedback.form')->with('success', 'Your feedback has been submitted successfully! Reference ID: ' . substr($feedback->fbk_uuid, 0, 8));
     }
 
     /*

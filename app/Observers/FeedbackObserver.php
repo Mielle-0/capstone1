@@ -21,6 +21,12 @@ class FeedbackObserver
             return; // Exit early, do not dispatch the job
         }
 
+        // If feedback is saved with status of Declined/Ignored, do not run Job
+        if ($feedback->fbk_status == 2) {
+            \Log::info("Prediction job skipped for Feedback ID: {$feedback->fbk_id}. Reason: Matched with FAQ.");
+            return;
+        }
+
         PredictFeedbackDepartment::dispatch(
             $feedback->fbk_id,
             $details,

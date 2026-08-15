@@ -6,5 +6,5 @@
             {{ $verificationCode }}
         </span>
     </div>
-    <p>Please enter this code back on the form to proceed.</p>
+    <p>Please enter this code back on the form to proceed. Take note that this will expire in 20 minutes.</p>
 </div>

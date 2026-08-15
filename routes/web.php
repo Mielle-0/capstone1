@@ -24,7 +24,12 @@ Route::get('/', [FeedbackPortalController::class, 'showForm'])
     ->name('feedback.form');
 
 Route::post('/feedback/send-code', [FeedbackPortalController::class, 'sendCode'])
+    ->middleware('throttle:3,1') 
     ->name('feedback.sendCode');
+
+Route::post('/feedback/resend-code', [FeedbackPortalController::class, 'resendCode'])
+    ->middleware('throttle:2,1') 
+    ->name('feedback.resendCode');
 
 Route::post('/feedback/submit', [FeedbackPortalController::class, 'submitFeedback'])
     ->middleware('throttle:3,1') // Only 3 submissions per minute per IP

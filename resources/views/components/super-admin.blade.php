@@ -101,11 +101,6 @@
             <span class="text-muted small">Monitor machine learning accuracy, model thresholds, and department rejections</span>
         </div>
         <a href="/admin/ai-settings" class="btn btn-sm btn-outline-dark px-3">Configure AI</a>
-        <!-- <div class="d-flex gap-2">
-            <button onclick="window.print()" class="btn btn-outline-secondary btn-sm px-3">
-            <i class="fas fa-print me-1"></i> Print / Save PDF
-        </button> -->
-    </div>
     </div>
 
     <div class="row mb-4">

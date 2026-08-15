@@ -101,7 +101,7 @@ July 14, 2026 | TODO
 
     - Tag feedback as incorrect routing                         - DONE
     - Multiple creation of tickets when threshold is passed     - DONE
-    - Get dataset distribution by: 
+    - Get dataset distribution by:                              - DONE
         Category, Department, Language detected (using langdetect?)
 
 
@@ -139,61 +139,20 @@ July 22, 2026 | TODO
         - new column for feedbackprediction
         - new line for endpoint, either use langdetect
 
+August 3, 2026
     
+    - display For Action when student responds
+
+    - fix dashboard views per role                                          - DONE
+
+August 12, 2026
+
+    - added faq matching                                                - DONE
+        - matches feedback to faq
+
+    - validation for faq matching
+        - check if faq answers the feedback
 
 Currently:
 
 
-
-
-
-
-
-
-
-
----
-
-### How to implement this right now (The Laravel Side)
-
-**Step 1: Update your Laravel Job (`PredictFeedbackDepartment.php`)**
-Assuming you update your Python API to return `detected_language`, update the Laravel Job payload:
-
-```php
-// Inside the API response parsing:
-$detectedLang = $depData['detected_language'] ?? 'Unknown';
-
-// Inside the DB::transaction create array:
-'detected_language' => $detectedLang,
-
-```
-
-**Step 2: Explain it in your Thesis Document (Chapter 3 / 4)**
-When presenting this to the panel, use this explanation:
-
-> *"To ensure transparency in how multi-lingual feedback is determined, the system utilizes a language detection step prior to classification. The Python ML pipeline identifies the primary language (e.g., English, Tagalog) and passes this metadata back to Laravel. This 'Detected Language' is permanently logged in the `feedback_predictions` table, displayed alongside raw feedback in the Admin Triage interface, and included in the exported analytical reports. This allows administrators to audit whether misclassifications are correlated with specific regional dialects."*
-
-
-
-
-fbk_id
-fbk_uuid
-src_id
-thm_id
-typ_id
-branch_id  
-std_id_no
-std_name 
-std_email 
-std_mobile
-std_program 
-fbk_details 
-fbk_attachment 
-fbk_date_created
-fbk_date_validated
-fbk_validated_by
-fbk_status
-fbk_disapprove_details 
-fbk_active
-fbk_created_by
-ip_address 

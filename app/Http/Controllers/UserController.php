@@ -269,8 +269,12 @@ class UserController extends Controller
             
             // Define pending actions: Active, not yet verified, and not rejected
             $pendingActionsQuery = Action::active()
+                ->where('act_status', 0)
                 ->whereNull('act_date_verified')
-                ->whereNull('act_reject_details');
+                ->whereNull('act_reject_details')
+                ->whereHas('ticket', function ($query) {
+                    $query->where('tck_active', 1); // Only count if parent ticket is active
+                });
 
             // Total pending verification
             $data['verificationCount'] = (clone $pendingActionsQuery)->count();

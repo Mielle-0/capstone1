@@ -79,6 +79,14 @@ class Action extends Model
     }
 
     /**
+     * Scope for actions waiting for verification
+     */
+    public function scopeUnverified($query)
+    {
+        return $query->whereNull('act_date_verified');
+    }
+
+    /**
      * Scope for rejected actions
      */
     public function scopeRejected($query)

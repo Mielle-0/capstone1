@@ -458,13 +458,15 @@ class WorkflowController extends Controller
         $feedback = Feedback::whereHas('tickets', function($query) use ($userDepartmentIds) {
             // This ensures the feedback has at least one ticket belonging to the user's department.
             // If they try to access a feedback ID not assigned to them, it throws a 404.
-            $query->whereIn('dep_id', $userDepartmentIds);
+            $query->whereIn('dep_id', $userDepartmentIds)
+                    ->where('tck_active', 1);
         })
         ->with([
             'validator', 
             // 3. Constrain the eager load so they only see their department's tickets in the timeline
             'tickets' => function($query) use ($userDepartmentIds) {
                 $query->whereIn('dep_id', $userDepartmentIds)
+                      ->where('tck_active', 1)
                       ->with([
                           'department', 
                           'actions.creator', 
@@ -480,14 +482,18 @@ class WorkflowController extends Controller
     // STAGE 4: VERIFICATION (Final Approval/Rating)
     public function verificationIndex() 
     {
-        // Eager load feedback and the latest actions (including the staff who wrote them)
-        $tickets = Ticket::pendingVerification()
-            ->with(['feedback', 'actions' => function($query) {
-                $query->latest('act_date_created');
-            }, 'actions.creator'])
+        $actions = Action::active()
+            ->where('act_status', 0)
+            ->whereNull('act_date_verified')
+            ->whereNull('act_reject_details')
+            ->whereHas('ticket', function ($query) {
+                $query->where('tck_active', 1); // Only count if parent ticket is active
+            })
+            ->with(['ticket.department', 'ticket.feedback', 'creator'])
+            ->latest('act_date_created')
             ->get();
 
-        return view('workflow.verification', compact('tickets'));
+        return view('workflow.verification', compact('actions'));
     }
 
     // Stage 4: Verify & Rate

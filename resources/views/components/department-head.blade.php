@@ -24,7 +24,7 @@
         <div class="col-md-4">
             <div class="card shadow-sm border-0 border-start border-danger border-4 h-100 bg-danger bg-opacity-10">
                 <div class="card-body">
-                    <h6 class="text-uppercase text-danger fw-bold mb-1">Overdue / SLA Breach</h6>
+                    <h6 class="text-uppercase text-danger fw-bold mb-1">Overdue</h6>
                     <h2 class="mb-0 text-danger">{{ $urgentActionCount ?? 0 }}</h2>
                     <small class="text-danger fw-medium">Unanswered > 24 Hours</small>
                 </div>
