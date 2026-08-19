@@ -63,7 +63,7 @@
 
         <div class="mb-4">
             <label class="form-label fw-bold"><i class="fas fa-comment-dots me-2 text-maroon"></i>Feedback Message</label>
-            <div class="p-4 bg-white border rounded shadow-sm fs-5" style="min-height: 150px; line-height: 0.7;">
+            <div class="p-4 bg-white border rounded shadow-sm fs-5" style="min-height: 150px; line-height: 1.2;">
                 {{ $feedback->fbk_details }}
             </div>
         </div>
@@ -84,14 +84,22 @@
                 <div class="mb-4">
                     <label class="form-label fw-bold text-muted small text-uppercase">Assign Departments</label>
                     
+                    @php
+                        // Format the data cleanly before injecting it into the HTML
+                        $formattedCandidates = $candidates->map(function($c) {
+                            return [
+                                'value' => $c->dep_id,
+                                'name'  => optional($c->department)->dep_name ?? 'Unknown Department',
+                                'score' => round($c->probability * 100, 1)
+                            ];
+                        })->toJson();
+                    @endphp
+
                     <input name="dep_ids" 
                             id="dept-autocomplete" 
                             class="form-control" 
                             placeholder="Type department name..."
-                            value='@json($candidates->map(fn($c) => [
-                                "value" => $c->dep_id, 
-                                "name" => optional($c->department)->dep_name ?? "Unknown Department"
-                            ]))'>
+                            value='{{ $formattedCandidates }}'>
 
                 </div>
 
@@ -149,12 +157,17 @@
         
         var initialValue = input.value ? JSON.parse(input.value) : [];
         var allAllowedDepartments = @json($allowedDepartments);
+        initialValue.forEach(function(predictedItem) {
+            let match = allAllowedDepartments.find(d => d.value == predictedItem.value);
+            if (match) {
+                match.score = predictedItem.score;
+            }
+        });
 
         var tagify = new Tagify(input, {
             tagTextProp: 'name', 
             enforceWhitelist: true,
             skipInvalid: true,
-            // maxTags: 1, 
             whitelist: allAllowedDepartments, 
             dropdown: {
                 maxItems: 100,      
@@ -164,9 +177,31 @@
                 searchKeys: ['name'] 
             },
             templates: {
+                // 2. CUSTOM TAG TEMPLATE: Safely format the tag on the screen
+                tag: function(tagData) {
+                    // If a score exists, create a small text block for it
+                    let scoreHtml = tagData.score ? `<span style="opacity: 0.85; font-size: 0.9em; margin-left: 4px;">(${tagData.score}%)</span>` : '';
+                    
+                    return `
+                        <tag title="${tagData.name}" 
+                             contenteditable='false' 
+                             spellcheck='false' 
+                             tabindex="-1" 
+                             class="tagify__tag ${tagData.class ? tagData.class : ''}" 
+                             ${this.getAttributes(tagData)}>
+                            <x title='' class='tagify__tag__removeBtn' role='button' aria-label='remove tag'></x>
+                            <div>
+                                <span class='tagify__tag-text'>${tagData.name}${scoreHtml}</span>
+                            </div>
+                        </tag>
+                    `;
+                },
+                // Optional: Also show the score badge inside the dropdown menu!
                 dropdownItem: function(item) {
+                    let scoreBadge = item.score ? `<span class="badge bg-success float-end">${item.score}% Match</span>` : '';
                     return `
                         <div ${this.getAttributes(item)} class='tagify__dropdown__item'>
+                            ${scoreBadge}
                             <strong class="text-maroon">${item.name}</strong>
                             <small class="text-muted d-block">${item.branch}</small>
                         </div>`;
