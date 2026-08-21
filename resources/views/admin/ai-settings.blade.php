@@ -53,6 +53,37 @@
                             </div>
                         </div>
 
+                        <hr class="my-4 text-muted opacity-25">
+
+                        <div class="mb-4">
+                            <label class="form-label fw-bold mb-2">Restricted Categories (Human Intervention Required)</label>
+                            <div class="form-text text-muted mb-3 mt-0">
+                                <i class="fas fa-exclamation-triangle me-1 text-warning"></i> 
+                                Select the feedback types that should NEVER be auto-routed. These will always require manual triage regardless of the AI's confidence score.
+                            </div>
+                            
+                            <div class="row px-3">
+                                {{-- Assuming $feedbackTypes is passed from your controller --}}
+                                @forelse($feedbackTypes ?? [] as $type)
+                                    <div class="col-md-6 mb-2">
+                                        <div class="form-check">
+                                            <input class="form-check-input custom-checkbox" type="checkbox" 
+                                                   name="restricted_categories[]" 
+                                                   value="{{ $type->typ_id }}" 
+                                                   id="category_{{ $type->typ_id }}"
+                                                   {{ in_array($type->typ_id, $restrictedCategories ?? []) ? 'checked' : '' }}
+                                                   style="cursor: pointer;">
+                                            <label class="form-check-label" for="category_{{ $type->typ_id }}" style="cursor: pointer;">
+                                                {{ $type->typ_value }} <!-- Update 'name' to your actual column name -->
+                                            </label>
+                                        </div>
+                                    </div>
+                                @empty
+                                    <div class="text-muted small">No feedback types found.</div>
+                                @endforelse
+                            </div>
+                        </div>
+
                     </div>
                     <div class="card-footer bg-light p-3 text-end">
                         <button type="submit" class="btn btn-maroon px-4 shadow-sm">

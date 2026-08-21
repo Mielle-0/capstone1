@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Models\AiSetting;
+use App\Models\FeedbackType;
 use Illuminate\Http\Request;
 
 class AiSettingsController extends Controller
@@ -15,8 +16,19 @@ class AiSettingsController extends Controller
         
         // Check if AI is enabled (returns 'yes' or 'no')
         $aiEnabled = AiSetting::get('ai_enabled', 'yes') === 'yes';
+        
+        $restrictedJson = AiSetting::where('key', 'restricted_categories')->value('value');
+        $restrictedCategories = json_decode($restrictedJson, true) ?? [];
 
-        return view('admin.ai-settings', compact('threshold', 'aiEnabled'));
+        // Fetch all available feedback types for the checkboxes
+        $feedbackTypes = FeedbackType::all();
+
+        return view('admin.ai-settings', compact(
+            'threshold', 
+            'aiEnabled', 
+            'restrictedCategories', 
+            'feedbackTypes'
+        ));
     }
 
     public function update(Request $request)
@@ -24,10 +36,14 @@ class AiSettingsController extends Controller
         // 1. Validate the range input
         $request->validate([
             'prediction_threshold' => 'required|numeric|min:0|max:1',
+            'restricted_categories' => 'nullable|array', // Ensure it's an array if present
+            'restricted_categories.*' => 'integer', // Ensure array items are IDs
         ]);
 
         // 2. Handle the checkbox (if missing, it means "no")
         $aiEnabled = $request->has('ai_enabled') ? 'yes' : 'no';
+
+        $restrictedArray = array_map('intval', $request->input('restricted_categories', []));
 
         // 3. Update or Create
         AiSetting::updateOrCreate(
@@ -38,6 +54,11 @@ class AiSettingsController extends Controller
         AiSetting::updateOrCreate(
             ['key' => 'ai_enabled'],
             ['value' => $aiEnabled]
+        );
+
+        AiSetting::updateOrCreate(
+            ['key' => 'restricted_categories'],
+            ['value' => json_encode($restrictedArray)]
         );
 
         return back()->with('success', 'AI Settings updated successfully!');
