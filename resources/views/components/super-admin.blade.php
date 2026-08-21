@@ -3,7 +3,6 @@
     <div class="d-flex justify-content-between align-items-end mb-4">
         <div>
             <h5 class="text-secondary fw-bold mb-1">User Management</h5>
-            <span class="text-muted small">Overview of system access and roles</span>
         </div>
         <a href="{{ route('admin.users.index') }}" class="btn btn-sm btn-primary px-3 shadow-sm">Manage Users</a>
     </div>
@@ -95,13 +94,44 @@
     </div>
 
 
-    <div class="d-flex justify-content-between align-items-center mb-4 pb-3 border-bottom">
+    <!-- <div class="d-flex justify-content-between align-items-center mb-4 pb-3 border-bottom">
         <div>
             <h5 class="text-secondary fw-bold mb-1">AI Routing Performance & Triage</h5>
-            <span class="text-muted small">Monitor machine learning accuracy, model thresholds, and department returns</span>
         </div>
         <a href="/admin/ai-settings" class="btn btn-sm btn-outline-dark px-3">Configure AI</a>
+    </div> -->
+<div class="d-flex justify-content-between align-items-center mb-4 pb-3 border-bottom">
+    <div>
+        <h5 class="text-secondary fw-bold mb-1">AI Routing Performance & Triage</h5>
     </div>
+    
+    <div class="d-flex align-items-center gap-2">
+        <!-- Date Dropdown Popover -->
+        <div class="dropdown">
+            <button class="btn btn-sm btn-light border shadow-sm dropdown-toggle fw-semibold text-secondary px-3" type="button" id="dateFilterDropdown" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
+                <i class="fas fa-calendar-alt me-2 text-primary"></i>
+                {{ request('ml_date_from') ? \Carbon\Carbon::parse(request('ml_date_from'))->format('M d') . ' - ' . \Carbon\Carbon::parse(request('ml_date_to'))->format('M d, Y') : 'Last 30 Days' }}
+            </button>
+            
+            <form action="{{ route('dashboard') }}" method="GET" class="dropdown-menu dropdown-menu-end p-3 shadow border-0 mt-2" style="width: 280px;" aria-labelledby="dateFilterDropdown">
+                <div class="mb-2">
+                    <label class="form-label small text-muted fw-bold mb-1">From Date</label>
+                    <input type="date" name="ml_date_from" class="form-control form-control-sm" value="{{ request('ml_date_from', now()->subDays(30)->format('Y-m-d')) }}">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small text-muted fw-bold mb-1">To Date</label>
+                    <input type="date" name="ml_date_to" class="form-control form-control-sm" value="{{ request('ml_date_to', now()->format('Y-m-d')) }}">
+                </div>
+                <div class="d-flex justify-content-between align-items-center pt-2 border-top">
+                    <a href="{{ route('dashboard') }}" class="btn btn-sm btn-link text-decoration-none text-muted p-0">Reset</a>
+                    <button type="submit" class="btn btn-sm btn-primary px-3">Apply</button>
+                </div>
+            </form>
+        </div>
+
+        <a href="/admin/ai-settings" class="btn btn-sm btn-outline-dark px-3 text-nowrap">Configure AI</a>
+    </div>
+</div>
 
     <div class="row mb-4">
         <div class="col-md-4">

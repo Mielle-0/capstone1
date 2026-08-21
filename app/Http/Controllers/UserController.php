@@ -24,7 +24,7 @@ use App\Models\TicketReturn;
 class UserController extends Controller
 {
 
-    public function dashboard()
+    public function dashboard(Request $request)
     {
         $user = auth()->user();
         
@@ -50,18 +50,31 @@ class UserController extends Controller
                 ->where('rol_active', 1)
                 ->get();
 
+            
+            // Date Range Filter
+            // Capture Dates from the Request (Default to last 30 days if null)
+            $fromDateStr = $request->input('ml_date_from', now()->subDays(30)->format('Y-m-d'));
+            $toDateStr   = $request->input('ml_date_to', now()->format('Y-m-d'));
+            
+            // Append times to capture the full start and end days
+            $fromDate = $fromDateStr . ' 00:00:00';
+            $toDate   = $toDateStr . ' 23:59:59';
+
             $data['currentAiVersion'] = AiSetting::get('active_model_version', 'v1.0');
 
-            // Handle threshold scale (e.g., UI might save 70 for 70%, but we need 0.70)
+            // Handle threshold scale
             $rawThreshold = AiSetting::get('ai_threshold', 70);
             $data['currentThreshold'] = (float) ($rawThreshold > 1 ? $rawThreshold / 100 : $rawThreshold * 100);
 
 
             // How many tickets did the AI route?
-            $totalAiRouted = FeedbackPrediction::where('requires_intervention', false)->count();
+            $totalAiRouted = FeedbackPrediction::where('requires_intervention', false)
+                ->whereBetween('created_at', [$fromDate, $toDate])
+                ->count();
 
             // How many were rejected by the departments due to AI errors?
             $totalRejected = TicketReturn::where('routing_source', 'AI Misclassification')
+                ->whereBetween('returned_at', [$fromDate, $toDate])
                 ->distinct('fbk_id')
                 ->count('fbk_id');
 
@@ -72,67 +85,26 @@ class UserController extends Controller
                 ? round(($successfulRoutes / $totalAiRouted) * 100, 1) 
                 : 0;
 
-            $data['recentPredictions'] = FeedbackPrediction::with(['topCandidate.department'])
-                ->orderBy('id', 'desc')
-                ->take(5)
-                ->get();
-
-
-            // ==========================================
-            // NEW: Language Distribution Metrics
-            // ==========================================
-            
-            // Get raw counts grouped by language
-            // $langStats = FeedbackPrediction::select('detected_language', \DB::raw('COUNT(*) as count'))
-            //     ->whereNotNull('detected_language')
-            //     ->groupBy('detected_language')
-            //     ->orderByDesc('count')
-            //     ->get();
-
-            // $totalLanguagePredictions = $langStats->sum('count');
-
-            // // Map ISO codes to readable names (Add more if your model supports them)
-            // $languageMap = [
-            //     'en' => 'English',
-            //     'tl' => 'Tagalog',
-            //     'ceb' => 'Cebuano',
-            //     'unknown' => 'Unknown'
-            // ];
-
-            // $data['languageDistribution'] = $langStats->map(function ($item) use ($languageMap, $totalLanguagePredictions) {
-            //     $rawCode = strtolower($item->detected_language);
-                
-            //     // Set human-readable language name (fallback to uppercase code if not in map)
-            //     $item->formatted_language = $languageMap[$rawCode] ?? strtoupper($rawCode);
-                
-            //     // Calculate percentage
-            //     $item->percentage = $totalLanguagePredictions > 0 
-            //         ? round(($item->count / $totalLanguagePredictions) * 100, 1) 
-            //         : 0;
-                    
-            //     return $item;
-            // });
-
-
-            // Misclassification Metrics & Triage Data
-            
-            // Total count of tickets rejected/dropped by departments due to AI
-            $data['totalMisclassifications'] = TicketReturn::where('routing_source', 'AI Misclassification')->count();
+            // Total count of tickets rejected/dropped by departments due to AI (Filtered)
+            $data['totalMisclassifications'] = TicketReturn::where('routing_source', 'AI Misclassification')
+                ->whereBetween('returned_at', [$fromDate, $toDate])
+                ->count();
 
             // Breakdown of misclassifications by Department
             $data['misclassificationsByDept'] = Ticket::join('ticket_returns', 'tickets.tck_id', '=', 'ticket_returns.tck_id')
                 ->where('ticket_returns.routing_source', 'AI Misclassification')
+                ->whereBetween('ticket_returns.returned_at', [$fromDate, $toDate])
                 ->selectRaw('tickets.dep_id, COUNT(*) as count')
                 ->with('department')
                 ->groupBy('tickets.dep_id')
                 ->orderByDesc('count')
                 ->get();
 
-            // Active Triage Table: Tickets kicked back by departments waiting for Admin correction
+            // Active Triage Table: Kicked back by departments waiting for Admin correction (Not filtered by date, as triage requires immediate attention regardless of date)
             $data['misclassifiedTickets'] = TicketReturn::join('tickets', 'ticket_returns.tck_id', '=', 'tickets.tck_id')
                 ->join('feedbacks', 'ticket_returns.fbk_id', '=', 'feedbacks.fbk_id')
                 ->leftJoin('departments', 'tickets.dep_id', '=', 'departments.dep_id')
-                ->where('feedbacks.fbk_status', 0) // Only include if waiting in triage
+                ->where('feedbacks.fbk_status', 0) 
                 ->select(
                     'ticket_returns.*', 
                     'tickets.dep_id', 
@@ -166,39 +138,35 @@ class UserController extends Controller
             // NEW: Confidence Bracket Metrics (For Report Table)
             // ==========================================
             
-            // Normalize threshold to a decimal (e.g., 0.70) for database comparison
             $decimalThreshold = $rawThreshold > 1 ? $rawThreshold / 100 : (float)$rawThreshold;
 
-            // 1. High Precision (>= 85%) and successfully auto-routed
-            // We query through the topCandidate relationship to check the highest probability
             $data['countHighPrecision'] = FeedbackPrediction::whereHas('topCandidate', function ($query) {
                     $query->where('probability', '>=', 0.85);
                 })
                 ->where('requires_intervention', false)
+                ->whereBetween('created_at', [$fromDate, $toDate])
                 ->count();
 
-            // 2. Standard Confidence (Threshold up to 84.9%) and successfully auto-routed
             $data['countStandardConfidence'] = FeedbackPrediction::whereHas('topCandidate', function ($query) use ($decimalThreshold) {
                     $query->where('probability', '>=', $decimalThreshold)
                           ->where('probability', '<', 0.85);
                 })
                 ->where('requires_intervention', false)
+                ->whereBetween('created_at', [$fromDate, $toDate])
                 ->count();
 
-            // 3. Low Confidence (< Threshold) - Automatically flagged for triage
             $data['countLowConfidence'] = FeedbackPrediction::whereHas('topCandidate', function ($query) use ($decimalThreshold) {
                     $query->where('probability', '<', $decimalThreshold);
                 })
-                // Optional: You can explicitly check intervention here, though your routing logic should guarantee it's true
-                ->where('requires_intervention', true) 
+                ->where('requires_intervention', true)
+                ->whereBetween('created_at', [$fromDate, $toDate])
                 ->count();
 
-            // 4. Restricted Category Override 
-            // (Confidence was high enough to route, but policy forced intervention e.g., Complaints)
             $data['countRestrictedOverride'] = FeedbackPrediction::whereHas('topCandidate', function ($query) use ($decimalThreshold) {
                     $query->where('probability', '>=', $decimalThreshold);
                 })
                 ->where('requires_intervention', true)
+                ->whereBetween('created_at', [$fromDate, $toDate])
                 ->count();
         }
 
