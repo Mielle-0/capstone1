@@ -12,6 +12,7 @@ use App\Models\Branch;
 use App\Models\ThematicValue;
 use App\Models\Department;
 use App\Models\Action;
+use App\Models\TicketReturn;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str; 
@@ -416,36 +417,61 @@ class WorkflowController extends Controller
 
     public function dropTicket(Request $request, Ticket $ticket)
     {
+        // 1. Validate the reason from the modal
+        $request->validate([
+            'rejection_reason' => 'required|string|min:5'
+        ]);
+
         DB::transaction(function () use ($ticket, $request) {
             
-            // 1. Drop the ticket
-            $ticket->update([
-                'tck_active' => 0,
-                'tck_disapprove_details' => $request->input('reason', 'Misclassified by AI'),
-                'tck_date_action' => now(),
-                'tck_action_by' => auth()->id(),
+            // A. Check who routed this ticket initially to assign blame properly
+            $prediction = FeedbackPrediction::where('fbk_id', $ticket->fbk_id)->first();
+            $isAiRouted = $prediction && $prediction->action_taken === 'auto_routed';
+            
+            // B. Log the bounce in your new normalization table
+            TicketReturn::create([
+                'tck_id'             => $ticket->tck_id,
+                'fbk_id'             => $ticket->fbk_id,
+                'returned_by_usr_id' => auth()->id(),
+                'routing_source'     => $isAiRouted ? 'AI Misclassification' : 'Admin Misclassification',
+                'return_reason'      => $request->input('rejection_reason')
             ]);
 
-            // 2. Check if the parent Feedback has any other active tickets
+            // 2. Drop the ticket
+            $ticket->update([
+                'tck_active'             => 0,
+                // It's safe to update the TICKET'S disapprove details as a quick summary
+                'tck_disapprove_details' => 'Returned to Triage', 
+                'tck_date_action'        => now(),
+                'tck_action_by'          => auth()->id(),
+            ]);
+
+            // 3. Check if the parent Feedback has any other active tickets
             $activeTicketsCount = Ticket::where('fbk_id', $ticket->fbk_id)
                                         ->where('tck_active', 1)
                                         ->count();
 
-            // 3. If no active tickets remain, revert the Feedback to pending (0)
+            // 4. If no active tickets remain, revert the Feedback to pending (0)
             if ($activeTicketsCount === 0) {
-                Feedback::where('fbk_id', $ticket->fbk_id)->update(['fbk_status' => 0]);
+                Feedback::where('fbk_id', $ticket->fbk_id)->update([
+                    'fbk_status'       => 0,
+                    'fbk_validated_by' => null // Clear validator so a triage admin can claim it again
+                ]);
             }
 
-            // 4. Update the Prediction so the AI report captures the failure
-            FeedbackPrediction::where('fbk_id', $ticket->fbk_id)->update([
-                'action_taken' => 'rejected_by_dept',
-                // We clear the verified IDs because the AI was wrong, and an admin needs to set the right one later
-                'verified_dept_ids' => null 
-            ]);
+            // 5. Update the Prediction so the AI report captures the failure
+            // ONLY execute this if the AI was the one who made the mistake!
+            if ($isAiRouted) {
+                $prediction->update([
+                    'action_taken'      => 'rejected_by_dept',
+                    // Clear the verified IDs because the AI was wrong; admin will set it later
+                    'verified_dept_ids' => null 
+                ]);
+            }
             
         });
 
-        return redirect()->back()->with('success', 'Ticket dropped and sent back to triage.');
+        return redirect()->back()->with('success', 'Ticket dropped and returned to triage queue.');
     }
 
     public function showTimeline($id)

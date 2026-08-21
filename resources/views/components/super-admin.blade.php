@@ -98,7 +98,7 @@
     <div class="d-flex justify-content-between align-items-center mb-4 pb-3 border-bottom">
         <div>
             <h5 class="text-secondary fw-bold mb-1">AI Routing Performance & Triage</h5>
-            <span class="text-muted small">Monitor machine learning accuracy, model thresholds, and department rejections</span>
+            <span class="text-muted small">Monitor machine learning accuracy, model thresholds, and department returns</span>
         </div>
         <a href="/admin/ai-settings" class="btn btn-sm btn-outline-dark px-3">Configure AI</a>
     </div>
@@ -132,7 +132,7 @@
                             <span class="fs-5 fw-bold text-dark">{{ $currentThreshold }}%</span>
                         </div>
                         <div class="col-3 border-end">
-                            <small class="text-muted d-block text-uppercase mb-1">Total Rejections</small>
+                            <small class="text-muted d-block text-uppercase mb-1">Total Returns</small>
                             <span class="fs-5 fw-bold text-danger">{{ $totalMisclassifications ?? 0 }}</span>
                         </div>
                         <div class="col-3">
@@ -158,7 +158,7 @@
         <div class="col-12">
             <div class="card shadow-sm border-0">
                 <div class="card-header bg-white border-bottom-0 pt-4">
-                    <h6 class="mb-0 fw-bold text-muted text-uppercase"><i class="fas fa-chart-bar me-2 text-danger"></i> Rejections by Department</h6>
+                    <h6 class="mb-0 fw-bold text-muted text-uppercase"><i class="fas fa-chart-bar me-2 text-danger"></i> Returns by Department</h6>
                     <small class="text-muted">Shows which departments receive the highest volume of misrouted AI tickets</small>
                 </div>
                 <div class="card-body">
@@ -167,12 +167,12 @@
                             <div class="col-md-3 mb-3">
                                 <div class="p-3 border rounded bg-light">
                                     <div class="small text-muted fw-bold text-truncate">{{ $metric->department->dep_name ?? 'Unknown Dept' }}</div>
-                                    <div class="fs-4 fw-bold text-dark mt-1">{{ $metric->count }} <span class="small font-weight-normal text-muted font-size-sm">rejections</span></div>
+                                    <div class="fs-4 fw-bold text-dark mt-1">{{ $metric->count }} <span class="small font-weight-normal text-muted font-size-sm">returns</span></div>
                                 </div>
                             </div>
                         @empty
                             <div class="col-12 text-center text-muted py-3">
-                                <small>No department rejection data recorded yet. Great routing stability!</small>
+                                <small>No returned ticket data recorded yet. Great routing stability!</small>
                             </div>
                         @endforelse
                     </div>
@@ -181,82 +181,48 @@
         </div>
     </div>
 
-    {{-- NEW: Language Distribution Metrics --}}
-    <div class="row mb-4">
-        <div class="col-12">
-            <div class="card shadow-sm border-0">
-                <div class="card-header bg-white border-bottom-0 pt-4">
-                    <h6 class="mb-0 fw-bold text-muted text-uppercase">
-                        <i class="fas fa-language me-2 text-info"></i> Language Distribution
-                    </h6>
-                    <small class="text-muted">Volume of incoming feedback broken down by AI-detected language</small>
-                </div>
-                <div class="card-body">
-                    <div class="row">
-                        @forelse($languageDistribution ?? [] as $lang)
-                            <div class="col-md-4 mb-3">
-                                <div class="p-3 border rounded bg-light d-flex justify-content-between align-items-center">
-                                    <div>
-                                        <div class="small text-muted fw-bold text-uppercase">{{ $lang->formatted_language ?? 'Unknown' }}</div>
-                                        <div class="fs-4 fw-bold text-dark mt-1">{{ number_format($lang->count) }}</div>
-                                    </div>
-                                    @if(isset($lang->percentage))
-                                        <div class="text-end">
-                                            <span class="badge bg-info-subtle text-info border border-info-subtle px-2 py-1">
-                                                {{ $lang->percentage }}%
-                                            </span>
-                                        </div>
-                                    @endif
-                                </div>
-                            </div>
-                        @empty
-                            <div class="col-12 text-center text-muted py-3">
-                                <small>No language detection data recorded yet.</small>
-                            </div>
-                        @endforelse
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    {{-- NEW: Admin Triage Datatable for Misclassified/Rejected Tickets --}}
     <div class="card shadow-sm border-0 mb-4">
         <div class="card-header bg-white border-bottom-0 pt-4 pb-0 d-flex justify-content-between align-items-center">
             <h6 class="mb-0 fw-bold text-muted text-uppercase"><i class="fas fa-exclamation-triangle me-2 text-warning"></i>Misclassified Tickets Awaiting Reassignment</h6>
             <span class="badge bg-danger-subtle text-danger border border-danger-subtle">{{ count($misclassifiedTickets ?? []) }} Items</span>
         </div>
-        <div class="card-body">
-            <div class="table-responsive">
+        <div class="card-body p-0"> <!-- Added p-0 to remove extra padding around the scrollbar -->
+            <!-- Added inline style for max-height and scrolling -->
+            <div class="table-responsive" style="max-height: 350px; overflow-y: auto;">
                 <table class="table table-hover align-middle mb-0">
-                    <thead class="table-light">
+                    <thead class="table-light sticky-top" style="z-index: 1;"> <!-- Added sticky-top -->
                         <tr>
                             <th class="ps-3 border-0">Ticket #</th>
-                            <th class="border-0">Original Feedback Snippet</th>
-                            <th class="border-0">Rejected From Dept</th>
-                            <th class="border-0">Action By / Date</th>
+                            <th class="border-0">Original Feedback</th>
+                            <th class="border-0">Return Source & Reason</th>
+                            <th class="border-0">Returned From Dept</th>
                             <th class="border-0 text-end pe-3">Action</th>
                         </tr>
                     </thead>
                     <tbody class="border-top-0">
-                        @forelse($misclassifiedTickets ?? [] as $ticket)
+                        @forelse($misclassifiedTickets ?? [] as $return)
                             <tr>
-                                <td class="ps-3 fw-bold text-primary">#{{ $ticket->tck_id }}</td>
+                                <td class="ps-3 fw-bold text-primary">#{{ $return->tck_id }}</td>
                                 <td>
-                                    <span class="text-muted text-truncate d-inline-block" style="max-width: 250px;">
-                                        "{{ $ticket->feedback->fbk_details ?? 'No details' }}"
+                                    <span class="text-muted text-truncate d-inline-block" style="max-width: 200px;" title="{{ $return->fbk_details }}">
+                                        "{{ $return->fbk_details ?? 'No details' }}"
                                     </span>
                                 </td>
                                 <td>
-                                    <span class="badge bg-secondary">{{ $ticket->department->dep_name ?? 'N/A' }}</span>
+                                    <span class="badge {{ $return->routing_source === 'AI Misclassification' ? 'bg-danger' : 'bg-warning text-dark' }} mb-1">
+                                        {{ $return->routing_source }}
+                                    </span>
+                                    <br>
+                                    <span class="text-muted small text-truncate d-inline-block" style="max-width: 200px;" title="{{ $return->return_reason }}">
+                                        {{ $return->return_reason }}
+                                    </span>
                                 </td>
                                 <td>
-                                    <span class="d-block small fw-bold">{{ $ticket->actionBy->usr_name ?? 'Staff' }}</span>
-                                    <span class="text-muted small">{{ $ticket->tck_date_action ? \Carbon\Carbon::parse($ticket->tck_date_action)->format('M d, Y h:i A') : 'N/A' }}</span>
+                                    <span class="d-block small fw-bold">{{ $return->dep_name ?? 'N/A' }}</span>
+                                    <span class="text-muted small">{{ \Carbon\Carbon::parse($return->returned_at)->format('M d, Y h:i A') }}</span>
                                 </td>
                                 <td class="text-end pe-3">
-                                    {{-- Link to your admin re-assignment workflow page --}}
-                                    <a href="{{ route('workflow.feedback_details', $ticket->feedback->fbk_id) }}" class="btn btn-sm btn-outline-dark px-3" target="_blank">
+                                    <a href="{{ route('workflow.feedback_details', $return->fbk_id) }}" class="btn btn-sm btn-outline-dark px-3" target="_blank">
                                         <i class="fas fa-random me-1"></i> Re-route
                                     </a>
                                 </td>
@@ -264,7 +230,7 @@
                         @empty
                             <tr>
                                 <td colspan="5" class="text-center py-4 text-muted">
-                                    <i class="fas fa-check-circle text-success me-1"></i> No rejected tickets pending triage right now.
+                                    <i class="fas fa-check-circle text-success me-1"></i> No returned tickets pending triage right now.
                                 </td>
                             </tr>
                         @endforelse
@@ -359,10 +325,10 @@
                     <!-- Report Type Selection -->
                     <div class="mb-3">
                         <label class="form-label fw-bold text-muted small text-uppercase">Report Type</label>
-                        <select name="report_type" class="form-select" required>
-                            <option value="intervention_summary">AI Confidence & Intervention Summary</option>
+                        <select name="report_type" id="reportTypeSelect" class="form-select" required>
                             <option value="triage_audit">Misclassified Feedback Report</option>
-                            <option value="raw_predictions">Raw Prediction Data Log</option>
+                            <option value="intervention_summary">AI Confidence & Intervention Summary</option>
+                            <!-- <option value="raw_predictions">Raw Prediction Data Log</option> -->
                         </select>
                     </div>
 
@@ -378,8 +344,18 @@
                         </div>
                     </div>
 
-                    <!-- Filter Options -->
-                    <div class="mb-4">
+                    <!-- Dynamic Filter Option 2: Routing Source Filter (For Misclassified Feedback Report) -->
+                    <div class="mb-4" id="routingSourceFilterWrapper">
+                        <label class="form-label fw-bold text-muted small text-uppercase">Misclassification Source</label>
+                        <select name="routing_source_filter" class="form-select">
+                            <option value="all">All Misclassifications (AI & Human)</option>
+                            <option value="ai_only">Only AI Misclassifications</option>
+                            <option value="admin_only">Only Staff / Human Misclassifications</option>
+                        </select>
+                    </div>
+
+                    <!-- Dynamic Filter Option 1: Prediction Filter (For AI Summary & Raw Predictions) -->
+                    <div class="mb-4 d-none" id="predictionFilterWrapper">
                         <label class="form-label fw-bold text-muted small text-uppercase">Intervention Filter</label>
                         <select name="intervention_filter" class="form-select">
                             <option value="all">Include All Predictions</option>
@@ -412,3 +388,21 @@
         </div>
     </div>
 </div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const reportTypeSelect = document.getElementById('reportTypeSelect');
+        const predictionFilterWrapper = document.getElementById('predictionFilterWrapper');
+        const routingSourceFilterWrapper = document.getElementById('routingSourceFilterWrapper');
+
+        reportTypeSelect.addEventListener('change', function () {
+            if (this.value === 'triage_audit') {
+                predictionFilterWrapper.classList.add('d-none');
+                routingSourceFilterWrapper.classList.remove('d-none');
+            } else {
+                predictionFilterWrapper.classList.remove('d-none');
+                routingSourceFilterWrapper.classList.add('d-none');
+            }
+        });
+    });
+</script>

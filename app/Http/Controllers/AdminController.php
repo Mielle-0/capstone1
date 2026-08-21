@@ -8,6 +8,7 @@ use App\Models\Ticket;
 use App\Models\Role;
 use App\Models\Branch;
 use App\Models\FeedbackType;
+use App\Models\TicketReturn;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash; 
 use Illuminate\Support\Facades\DB;
@@ -258,7 +259,8 @@ class AdminController extends Controller
             'report_type' => 'required|string|in:intervention_summary,triage_audit,raw_predictions',
             'date_from' => 'required|date',
             'date_to' => 'required|date|after_or_equal:date_from',
-            'intervention_filter' => 'required|string|in:all,auto_only,manual_only',
+            'intervention_filter' => 'nullable|string|in:all,auto_only,manual_only',
+            'routing_source_filter' => 'nullable|string|in:all,ai_only,admin_only',
             'format' => 'required|string|in:pdf,csv',
         ]);
 
@@ -313,16 +315,29 @@ class AdminController extends Controller
                     });
 
                 } elseif ($validated['report_type'] === 'triage_audit') {
-                    // CSV Headers for Audit Export
-                    fputcsv($file, ['Feedback ID', 'Action Taken', 'Action By', 'Action Date']);
+                    // CSV Headers for Ticket Return Audit Export
+                    fputcsv($file, ['Ticket ID', 'Feedback ID', 'Routing Source', 'Return Reason', 'Returned By', 'Return Date']);
                     
-                    $query->chunk(500, function ($predictions) use ($file) {
-                        foreach ($predictions as $pred) {
+                    // Build ticket returns query
+                    $returnsQuery = TicketReturn::with(['returnedBy'])
+                        ->whereBetween('returned_at', [$fromDate, $toDate]);
+
+                    // Apply Routing Source Filter
+                    if (($validated['routing_source_filter'] ?? 'all') === 'ai_only') {
+                        $returnsQuery->where('routing_source', 'AI Misclassification');
+                    } elseif (($validated['routing_source_filter'] ?? 'all') === 'admin_only') {
+                        $returnsQuery->where('routing_source', '!=', 'AI Misclassification');
+                    }
+
+                    $returnsQuery->chunk(500, function ($returns) use ($file) {
+                        foreach ($returns as $return) {
                             fputcsv($file, [
-                                $pred->fbk_id,
-                                $pred->action_taken,
-                                $pred->actionTakenBy->usr_name ?? 'System',
-                                $pred->action_taken_at ? $pred->action_taken_at->format('Y-m-d H:i:s') : 'N/A'
+                                $return->tck_id,
+                                $return->fbk_id,
+                                $return->routing_source,
+                                $return->return_reason,
+                                $return->returnedBy->usr_name ?? 'Unknown User',
+                                $return->returned_at->format('Y-m-d H:i:s')
                             ]);
                         }
                     });
@@ -400,11 +415,17 @@ class AdminController extends Controller
             });
 
         } elseif ($validated['report_type'] === 'triage_audit') {
-            $reportData['rejections'] = Ticket::with(['department', 'actionBy', 'feedback'])
-                ->whereBetween('tck_date_action', [$fromDate, $toDate])
-                ->where('tck_active', 0)
-                ->where('tck_disapprove_details', 'LIKE', '%Misclassified by AI%')
-                ->get();
+            $returnsQuery = TicketReturn::with(['ticket.department', 'returnedBy', 'feedback'])
+                ->whereBetween('returned_at', [$fromDate, $toDate]);
+
+            // Apply Routing Source Filter
+            if (($validated['routing_source_filter'] ?? 'all') === 'ai_only') {
+                $returnsQuery->where('routing_source', 'AI Misclassification');
+            } elseif (($validated['routing_source_filter'] ?? 'all') === 'admin_only') {
+                $returnsQuery->where('routing_source', '!=', 'AI Misclassification');
+            }
+
+            $reportData['rejections'] = $returnsQuery->orderBy('returned_at', 'desc')->get();
         }
 
         // Render a clean Blade view meant for printing/PDF conversion

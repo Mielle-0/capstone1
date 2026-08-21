@@ -146,12 +146,10 @@
                                         </div> -->
                                         <div class="col-md-5 text-end pt-3 d-flex justify-content-end align-items-center gap-2">
                                             
-                                            {{-- ONLY show if the AI routed this automatically --}}
-                                            @if($t->feedback->prediction && $t->feedback->prediction->action_taken === 'auto_routed')
-                                                <button type="button" class="btn btn-outline-danger shadow-sm px-3" data-bs-toggle="modal" data-bs-target="#rejectModal{{ $t->tck_id }}">
-                                                    <i class="fas fa-times-circle me-1"></i> Not My Dept
-                                                </button>
-                                            @endif
+                                            {{-- REMOVED: @if restriction so this button works for both AI and Admin mistakes --}}
+                                            <button type="button" class="btn btn-outline-danger shadow-sm px-3" data-bs-toggle="modal" data-bs-target="#rejectModal{{ $t->tck_id }}">
+                                                <i class="fas fa-times-circle me-1"></i> Not My Dep 
+                                            </button>
 
                                             <button type="submit" class="btn btn-maroon shadow-sm px-4" onclick="return confirm('Submit this action for verification?')">
                                                 <i class="fas fa-paper-plane me-1"></i> Submit Action
@@ -178,14 +176,37 @@
                         
                         <form action="{{ route('workflow.reject_ticket', $t->tck_id) }}" method="POST">
                             @csrf
+                            
+                            {{-- Check who routed this ticket to display the correct UI --}}
+                            @php
+                                $isAiRouted = $t->feedback->prediction && $t->feedback->prediction->action_taken === 'auto_routed';
+                            @endphp
+
                             <div class="modal-body p-4 text-center">
                                 <div class="mb-3">
-                                    <i class="fas fa-robot fa-3x text-muted opacity-50"></i>
+                                    @if($isAiRouted)
+                                        <i class="fas fa-robot fa-3x text-muted opacity-50" title="Routed by AI"></i>
+                                    @else
+                                        <i class="fas fa-user-shield fa-3x text-muted opacity-50" title="Routed by Admin"></i>
+                                    @endif
                                 </div>
+                                
                                 <h6 class="fw-bold mb-2">Not your department's concern?</h6>
-                                <p class="small text-muted mb-0">
-                                    Confirming will drop this ticket from your queue and return it to the administrative triage. The system will automatically log this as an AI misclassification.
+                                
+                                <p class="small text-muted mb-3">
+                                    Confirming will drop this ticket from your queue and return it to administrative triage. 
+                                    @if($isAiRouted)
+                                        <br><span class="text-maroon">The system will automatically log this as an AI misclassification.</span>
+                                    @else
+                                        <br><span class="text-warning text-dark">The system will log this as an Staff misclassification.</span>
+                                    @endif
                                 </p>
+
+                                <!-- NEW: Required Rejection Reason Input -->
+                                <div class="text-start bg-light p-3 rounded border">
+                                    <label class="small text-muted text-uppercase fw-bold d-block mb-1">Reason for Return <span class="text-danger">*</span></label>
+                                    <textarea name="rejection_reason" class="form-control form-control-sm" rows="2" placeholder="E.g., 'This is an IT issue, not Accounting...'" required minlength="5"></textarea>
+                                </div>
                             </div>
                             
                             <div class="modal-footer border-top bg-light justify-content-center">

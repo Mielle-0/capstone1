@@ -7,7 +7,7 @@
         @if(($validated['report_type'] ?? '') === 'intervention_summary')
             AI Confidence & Intervention Summary Report
         @elseif(($validated['report_type'] ?? '') === 'triage_audit')
-            Department Rejection & Triage Audit Report
+            Department Return & Triage Audit Report
         @else
             AI Performance Report
         @endif
@@ -101,7 +101,7 @@
                         @if(($validated['report_type'] ?? '') === 'intervention_summary')
                             AI Confidence & Intervention Summary
                         @elseif(($validated['report_type'] ?? '') === 'triage_audit')
-                            Department Rejection & Triage Audit
+                            Department Return & Triage Audit
                         @else
                             System Performance Analysis
                         @endif
@@ -233,7 +233,7 @@
             @elseif(($validated['report_type'] ?? '') === 'triage_audit')
 
                 <h5 class="fw-bold text-secondary text-uppercase border-bottom pb-2 mb-3" style="font-size: 0.9rem;">
-                    Rejection & Manual Re-assignment Audit Log
+                    Return & Manual Re-assignment Audit Log
                 </h5>
 
                 <div class="table-responsive">
@@ -242,9 +242,12 @@
                             <tr>
                                 <th>Ticket #</th>
                                 <th>Original Feedback</th>
-                                <th>Rejected Department</th>
+                                <th>Source & Reason</th>
+                                <th>Returning Dept</th>
                                 <th>Action By</th>
-                                <th>Action Date</th>
+                                <!-- <th>Created On</th>
+                                <th>Return to Tiage Date</th> -->
+                                <th>Timeline</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -252,20 +255,38 @@
                                 <tr>
                                     <td class="fw-bold text-primary">#{{ $rejectedTicket->tck_id }}</td>
                                     <td>
-                                        <span class="d-inline-block text-truncate" style="max-width: 250px;">
+                                        <span class="d-inline-block text-truncate" style="max-width: 200px;" title="{{ $rejectedTicket->feedback->fbk_details ?? '' }}">
                                             "{{ $rejectedTicket->feedback->fbk_details ?? 'No details provided' }}"
                                         </span>
                                     </td>
                                     <td>
-                                        <span class="badge bg-secondary">{{ $rejectedTicket->department->dep_name ?? 'N/A' }}</span>
+                                        <span class="badge {{ $rejectedTicket->routing_source === 'AI Misclassification' ? 'bg-danger' : 'bg-warning text-dark' }} mb-1">
+                                            {{ $rejectedTicket->routing_source }}
+                                        </span>
+                                        <br>
+                                        <span class="text-muted small d-inline-block text-truncate" style="max-width: 150px;" title="{{ $rejectedTicket->return_reason }}">
+                                            {{ $rejectedTicket->return_reason }}
+                                        </span>
                                     </td>
-                                    <td class="fw-bold">{{ $rejectedTicket->actionBy->usr_name ?? 'Department Staff' }}</td>
-                                    <td>{{ $rejectedTicket->tck_date_action ? \Carbon\Carbon::parse($rejectedTicket->tck_date_action)->format('M d, Y h:i A') : 'N/A' }}</td>
+                                    <td>
+                                        <span class="badge bg-secondary">{{ $rejectedTicket->ticket->department->dep_name ?? 'N/A' }}</span>
+                                    </td>
+                                    <td class="fw-bold">{{ $rejectedTicket->returnedBy->usr_name ?? 'Department Staff' }}</td>
+                                    <td>
+                                        <div class="text-muted mb-1" style="font-size: 0.8rem;">
+                                            <i class="fas fa-asterisk text-success me-1" style="font-size: 0.7rem;"></i> 
+                                            Created: {{ $rejectedTicket->ticket->tck_date_created ? \Carbon\Carbon::parse($rejectedTicket->ticket->tck_date_created)->format('M d, Y h:i A') : 'N/A' }}
+                                        </div>
+                                        <div class="fw-bold text-dark" style="font-size: 0.8rem;">
+                                            <i class="fas fa-undo text-danger me-1" style="font-size: 0.7rem;"></i> 
+                                            Returned: {{ $rejectedTicket->returned_at ? \Carbon\Carbon::parse($rejectedTicket->returned_at)->format('M d, Y h:i A') : 'N/A' }}
+                                        </div>
+                                    </td>
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="5" class="text-center py-4 text-muted">
-                                        <i class="fas fa-check-circle text-success me-1"></i> No department rejections were recorded within this date window.
+                                    <td colspan="6" class="text-center py-4 text-muted">
+                                        <i class="fas fa-check-circle text-success me-1"></i> No department returns were recorded within this date window.
                                     </td>
                                 </tr>
                             @endforelse

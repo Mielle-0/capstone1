@@ -150,9 +150,23 @@ August 12, 2026
     - added faq matching                                                - DONE
         - matches feedback to faq
 
-    - validation for faq matching
+    - validation for faq matching                                       - DONE
         - check if faq answers the feedback
 
-Currently:
+August 19, 2026
 
+    - display confidence score to feedback_to_validate view page        - DONE
+        on predicted departments
+
+    - filter for AI Routing Performance & Triage admin page
+
+    - include "Not by department button" on manual routing
+        - 
+
+Currently:
+    - not my department button for manual routing
+        - create new table to log returned tickets
+            - model, migration, schema
+                          
+        - use table for feedbacks that were returned to triage
 

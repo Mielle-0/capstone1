@@ -19,6 +19,7 @@ use App\Models\FeedbackPrediction;
 use App\Models\Ticket;
 use App\Models\Action;
 use App\Models\Role;
+use App\Models\TicketReturn;
 
 class UserController extends Controller
 {
@@ -59,9 +60,8 @@ class UserController extends Controller
             // How many tickets did the AI route?
             $totalAiRouted = FeedbackPrediction::where('requires_intervention', false)->count();
 
-            // How many were rejected by the departments? (From the previous triage logic)
-            $totalRejected = Ticket::where('tck_active', 0)
-                ->where('tck_disapprove_details', 'LIKE', '%Misclassified by AI%')
+            // How many were rejected by the departments due to AI errors?
+            $totalRejected = TicketReturn::where('routing_source', 'AI Misclassification')
                 ->distinct('fbk_id')
                 ->count('fbk_id');
 
@@ -83,62 +83,63 @@ class UserController extends Controller
             // ==========================================
             
             // Get raw counts grouped by language
-            $langStats = FeedbackPrediction::select('detected_language', \DB::raw('COUNT(*) as count'))
-                ->whereNotNull('detected_language')
-                ->groupBy('detected_language')
-                ->orderByDesc('count')
-                ->get();
+            // $langStats = FeedbackPrediction::select('detected_language', \DB::raw('COUNT(*) as count'))
+            //     ->whereNotNull('detected_language')
+            //     ->groupBy('detected_language')
+            //     ->orderByDesc('count')
+            //     ->get();
 
-            $totalLanguagePredictions = $langStats->sum('count');
+            // $totalLanguagePredictions = $langStats->sum('count');
 
-            // Map ISO codes to readable names (Add more if your model supports them)
-            $languageMap = [
-                'en' => 'English',
-                'tl' => 'Tagalog',
-                'ceb' => 'Cebuano',
-                'unknown' => 'Unknown'
-            ];
+            // // Map ISO codes to readable names (Add more if your model supports them)
+            // $languageMap = [
+            //     'en' => 'English',
+            //     'tl' => 'Tagalog',
+            //     'ceb' => 'Cebuano',
+            //     'unknown' => 'Unknown'
+            // ];
 
-            $data['languageDistribution'] = $langStats->map(function ($item) use ($languageMap, $totalLanguagePredictions) {
-                $rawCode = strtolower($item->detected_language);
+            // $data['languageDistribution'] = $langStats->map(function ($item) use ($languageMap, $totalLanguagePredictions) {
+            //     $rawCode = strtolower($item->detected_language);
                 
-                // Set human-readable language name (fallback to uppercase code if not in map)
-                $item->formatted_language = $languageMap[$rawCode] ?? strtoupper($rawCode);
+            //     // Set human-readable language name (fallback to uppercase code if not in map)
+            //     $item->formatted_language = $languageMap[$rawCode] ?? strtoupper($rawCode);
                 
-                // Calculate percentage
-                $item->percentage = $totalLanguagePredictions > 0 
-                    ? round(($item->count / $totalLanguagePredictions) * 100, 1) 
-                    : 0;
+            //     // Calculate percentage
+            //     $item->percentage = $totalLanguagePredictions > 0 
+            //         ? round(($item->count / $totalLanguagePredictions) * 100, 1) 
+            //         : 0;
                     
-                return $item;
-            });
+            //     return $item;
+            // });
 
 
             // Misclassification Metrics & Triage Data
             
-            // Total count of tickets rejected/dropped by departments
-            $data['totalMisclassifications'] = Ticket::where('tck_active', 0)
-                ->where('tck_disapprove_details', 'LIKE', '%Misclassified by AI%')
-                ->count();
+            // Total count of tickets rejected/dropped by departments due to AI
+            $data['totalMisclassifications'] = TicketReturn::where('routing_source', 'AI Misclassification')->count();
 
-            // Breakdown of misclassifications by Department (for visual metrics)
-            $data['misclassificationsByDept'] = Ticket::where('tck_active', 0)
-                ->where('tck_disapprove_details', 'LIKE', '%Misclassified by AI%')
-                ->selectRaw('dep_id, COUNT(*) as count')
+            // Breakdown of misclassifications by Department
+            $data['misclassificationsByDept'] = Ticket::join('ticket_returns', 'tickets.tck_id', '=', 'ticket_returns.tck_id')
+                ->where('ticket_returns.routing_source', 'AI Misclassification')
+                ->selectRaw('tickets.dep_id, COUNT(*) as count')
                 ->with('department')
-                ->groupBy('dep_id')
+                ->groupBy('tickets.dep_id')
                 ->orderByDesc('count')
                 ->get();
 
             // Active Triage Table: Tickets kicked back by departments waiting for Admin correction
-            $data['misclassifiedTickets'] = Ticket::with(['feedback.type', 'department', 'actionBy'])
-                ->where('tck_active', 0)
-                ->where('tck_disapprove_details', 'LIKE', '%Misclassified by AI%')
-                // NEW: Only include this if the parent feedback is still waiting for action
-                ->whereHas('feedback', function ($query) {
-                    $query->where('fbk_status', 0); 
-                })
-                ->orderBy('tck_date_action', 'desc')
+            $data['misclassifiedTickets'] = TicketReturn::join('tickets', 'ticket_returns.tck_id', '=', 'tickets.tck_id')
+                ->join('feedbacks', 'ticket_returns.fbk_id', '=', 'feedbacks.fbk_id')
+                ->leftJoin('departments', 'tickets.dep_id', '=', 'departments.dep_id')
+                ->where('feedbacks.fbk_status', 0) // Only include if waiting in triage
+                ->select(
+                    'ticket_returns.*', 
+                    'tickets.dep_id', 
+                    'departments.dep_name', 
+                    'feedbacks.fbk_details'
+                )
+                ->orderBy('ticket_returns.returned_at', 'desc')
                 ->take(10)
                 ->get();
 
