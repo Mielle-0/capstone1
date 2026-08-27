@@ -76,7 +76,7 @@ class PredictFeedbackDepartment implements ShouldQueue
                 $predictedCategory = $catData['category'] ?? 'unknown';
                 $categoryConfidence = $catData['confidence'] ?? $catData['probability'] ?? null;
                 $categoryModelVersion = Str::afterLast($catData['used_model'] ?? '', '/');
-                $detectedLanguage = $catData['detected_language'] ?? 'unknown'; // Extract detected language
+                $detectedLanguage = 'n/a'; 
             } else {
                 Log::warning("Category API Call Failed. Using 'unknown' fallback for fbk_id: {$this->fbk_id}");
             }

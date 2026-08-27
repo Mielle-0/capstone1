@@ -49,7 +49,18 @@
                             $label = $category->typ_value; 
                             
                             if ($isAiChoice) {
-                                $label .= ' (AI Predicted)';
+                                // If a confidence score exists, format it as a percentage
+                                if (!is_null($predictionConfidence)) {
+                                    // Adjust this math if your DB stores it as 85 instead of 0.85
+                                    $percentage = $predictionConfidence <= 1 
+                                        ? round($predictionConfidence * 100) 
+                                        : round($predictionConfidence);
+                                        
+                                    $label .= ' (AI: ' . $percentage . '%)';
+                                } else {
+                                    // Fallback if the prediction exists but the score is missing
+                                    $label .= ' (AI Predicted)';
+                                }
                             }
                         @endphp
                         
